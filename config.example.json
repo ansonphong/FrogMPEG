@@ -1,0 +1,59 @@
+{
+  "project_name": "COSMIC-HUMANITY",
+  "renders_folder": "../_RENDERS",
+  "output_folder": "../_RENDERS",
+  "ffmpeg_path": "C:/Tools/ffmpeg/bin/ffmpeg.exe",
+  "auto_create_output": true,
+
+  "defaults": {
+    "resolution": "2048x2048",
+    "bitrate": "100M",
+    "file_extension": "jpeg",
+    "fps": 60,
+    "preset_name": "fulldome-2k"
+  },
+
+  "presets": [
+    {
+      "name": "fulldome-2k",
+      "description": "Standard 2K fulldome render",
+      "resolution": "2048x2048",
+      "bitrate": "100M",
+      "fps": 60
+    },
+    {
+      "name": "fulldome-4k",
+      "description": "High quality 4K fulldome",
+      "resolution": "4096x4096",
+      "bitrate": "200M",
+      "fps": 60
+    },
+    {
+      "name": "preview",
+      "description": "Faster preview output",
+      "resolution": "1024x1024",
+      "bitrate": "25M",
+      "fps": 30
+    }
+  ],
+
+  "encoding": {
+    "use_gpu": true,
+    "gpu_preset": "p7",
+    "cpu_preset": "veryslow",
+    "tune": "animation",
+    "pixel_format": "yuv420p",
+    "keyframe_interval": 60,
+    "b_frames": 3,
+    "rc_lookahead": 32,
+    "spatial_aq": 1,
+    "temporal_aq": 1
+  },
+
+  "ui": {
+    "theme": "frog_splash",
+    "show_file_count": true,
+    "auto_select_latest": true
+  }
+}
+
