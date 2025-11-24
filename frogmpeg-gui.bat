@@ -12,7 +12,7 @@ if not exist "venv\" (
     python -m venv venv || goto :error
     call venv\Scripts\activate.bat
     pip install --upgrade pip
-    pip install -r requirements.txt || goto :error
+    pip install -e . || goto :error
 ) else (
     call venv\Scripts\activate.bat
 )

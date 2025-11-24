@@ -17,3 +17,7 @@ dependencies = [
 [project.scripts]
 frogmpeg = "frogmpeg.cli:run"
 
+[tool.setuptools]
+packages = ["frogmpeg"]
+package-dir = {"frogmpeg" = "src"}
+
