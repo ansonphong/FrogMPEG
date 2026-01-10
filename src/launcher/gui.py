@@ -85,7 +85,7 @@ class LauncherGui:
         """Create a panel for a single mode option using theme colors."""
         content = Text()
         
-        # Mode icon and title
+        # Mode icon and title with click instruction
         content.append(f"\n{mode.icon}  ", style="")
         if is_selected:
             content.append(f"{mode.title}\n\n", style=COLORS["success"])
@@ -98,8 +98,12 @@ class LauncherGui:
         style = COLORS["active_border"] if is_selected else COLORS["inactive_border"]
         border = box.DOUBLE if is_selected else box.ROUNDED
         
-        indicator = "►" if is_selected else " "
-        title = f"{indicator} {mode.title}"
+        # Show number in title for "clicking"
+        number = "1" if mode.key == "img2video" else "2"
+        if is_selected:
+            title = f"► Press [{number}] or [Enter] to select"
+        else:
+            title = f"  Press [{number}] to select"
         
         return Panel(
             content,
@@ -124,10 +128,10 @@ class LauncherGui:
     def create_footer(self) -> Panel:
         """Create the footer with controls using theme colors."""
         shortcuts = [
-            ("[Enter]", "Select", "success"),
+            ("[1]", "Image→Video", "success"),
+            ("[2]", "Video→Images", "success"),
             ("[←→]", "Navigate", "emerald"),
-            ("[1]", "Image→Video", "gold"),
-            ("[2]", "Video→Images", "gold"),
+            ("[Enter]", "Confirm", "gold"),
             ("[Q]", "Quit", "muted"),
         ]
         return Panel(create_footer_text(shortcuts), box=box.ROUNDED, style=COLORS["inactive_border"])
