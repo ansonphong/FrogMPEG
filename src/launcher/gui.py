@@ -146,7 +146,7 @@ class LauncherGui:
         return layout
     
     def handle_key(self, key: str) -> Optional[str]:
-        """Handle keyboard input. Returns mode key or 'quit'."""
+        """Handle keyboard input. Returns mode key or 'quit'. Returns tuple (action, state_changed)."""
         if key.lower() == "q":
             return "quit"
         
@@ -157,6 +157,7 @@ class LauncherGui:
             return "video2img"
         
         # Arrow navigation (same key codes as other GUIs)
+        old_idx = self.selected_idx
         if key == "K":  # left
             self.selected_idx = max(0, self.selected_idx - 1)
         elif key == "M":  # right
@@ -166,7 +167,8 @@ class LauncherGui:
         if key == "\r":
             return self.modes[self.selected_idx].key
         
-        return None
+        # Return whether selection changed
+        return ("continue", old_idx != self.selected_idx)
     
     def run(self) -> str:
         """Main loop. Returns selected mode key or 'quit'."""
@@ -194,11 +196,14 @@ class LauncherGui:
                     key = sys.stdin.read(1)
                 
                 result = self.handle_key(key)
-                if result:
+                
+                # Check if it's a mode selection or quit
+                if isinstance(result, str) and result != "continue":
                     return result
                 
-                # Update layout and force refresh (flicker in PowerShell is terminal limitation)
-                live.update(self.render(), refresh=True)
+                # Only update if selection changed
+                if isinstance(result, tuple) and result[1]:  # state_changed = True
+                    live.update(self.render(), refresh=True)
 
 
 def run_launcher() -> None:
