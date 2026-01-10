@@ -68,13 +68,18 @@ class LauncherGui:
     def create_header(self) -> Panel:
         """Create the header panel with ASCII logo in frog theme."""
         logo = Text()
-        # Simpler header that fits better
-        logo.append("\n ╔═══════════════════════════════════════════════════════════════╗\n", style=COLORS["success"])
-        logo.append(" ║                        🐸 FROGMPEG 🐸                        ║\n", style=COLORS["success"])
-        logo.append(" ╚═══════════════════════════════════════════════════════════════╝\n", style=COLORS["success"])
-        logo.append("           Multi-Format Video & Image Converter v2.0\n", style=COLORS["emerald"])
+        logo.append("\n")
+        logo.append("    ███████╗██████╗  ██████╗  ██████╗ ███╗   ███╗██████╗ ███████╗ ██████╗ \n", style=COLORS["success"])
+        logo.append("    ██╔════╝██╔══██╗██╔═══██╗██╔════╝ ████╗ ████║██╔══██╗██╔════╝██╔════╝ \n", style=COLORS["bright"])
+        logo.append("    █████╗  ██████╔╝██║   ██║██║  ███╗██╔████╔██║██████╔╝█████╗  ██║  ███╗\n", style=COLORS["bright"])
+        logo.append("    ██╔══╝  ██╔══██╗██║   ██║██║   ██║██║╚██╔╝██║██╔═══╝ ██╔══╝  ██║   ██║\n", style=COLORS["primary"])
+        logo.append("    ██║     ██║  ██║╚██████╔╝╚██████╔╝██║ ╚═╝ ██║██║     ███████╗╚██████╔╝\n", style=COLORS["primary"])
+        logo.append("    ╚═╝     ╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚══════╝ ╚═════╝ \n", style=COLORS["muted"])
+        logo.append("\n")
+        logo.append("                     🐸 Multi-Format Video Converter 🐸", style=COLORS["emerald"])
+        logo.append("\n")
         
-        return Panel(logo, box=box.DOUBLE, style=COLORS["bright"], padding=(0, 0))
+        return Panel(logo, box=box.DOUBLE, style=COLORS["bright"])
     
     def create_mode_panel(self, mode: ModeOption, is_selected: bool) -> Panel:
         """Create a panel for a single mode option using theme colors."""
@@ -175,8 +180,8 @@ class LauncherGui:
         import time
         time.sleep(0.1)
         
-        # Use manual refresh only - no auto refresh to prevent flickering
-        with Live(self.render(), console=console, screen=True, refresh_per_second=1) as live:
+        # Use ZERO refresh rate - only update on explicit key press
+        with Live(self.render(), console=console, screen=True, refresh_per_second=0) as live:
             while True:
                 if msvcrt:
                     key = msvcrt.getch()
