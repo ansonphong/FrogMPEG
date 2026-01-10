@@ -5,7 +5,13 @@ Typer-based CLI for FrogMPEG.
 from __future__ import annotations
 
 import json
+import os
+import sys
 from typing import Optional
+
+# Fix Windows console encoding for emoji support
+if sys.platform == "win32":
+    os.environ["PYTHONIOENCODING"] = "utf-8"
 
 import typer
 
@@ -18,8 +24,16 @@ from .config import (
     load_config,
 )
 from .converter import ConversionRequest, ConversionError, convert_folder
+from .dialogs import browse_for_sequence_folder
+from .formats import (
+    ALL_CODECS,
+    CODECS_BY_CONTAINER,
+    get_available_containers,
+    get_codec,
+    get_codecs_for_container,
+)
 
-app = typer.Typer(help="🐸 FrogMPEG - Convert image sequences to MP4 with style.")
+app = typer.Typer(help="FrogMPEG - Multi-codec video converter with ProRes support.")
 
 
 @app.callback()
@@ -39,16 +53,165 @@ def gui() -> None:
     run_gui()
 
 
-@app.command(help="Convert an image sequence folder to MP4.")
+@app.command(help="Convert an image sequence folder to video.")
 def convert(
-    folder: str = typer.Argument(..., help="Folder name inside renders_folder."),
+    folder: str = typer.Argument(None, help="Folder name inside renders_folder (or use --browse)."),
     preset: Optional[str] = typer.Option(None, "--preset", "-p", help="Preset name from config."),
     extension: Optional[str] = typer.Option(
         None, "--extension", "-e", help="Override file extension (jpeg/jpg/png)."
     ),
+    format: Optional[str] = typer.Option(
+        None, "--format", "-f", help="Output format key (e.g., prores-422-mov, hevc-nvenc-mp4)."
+    ),
+    container: Optional[str] = typer.Option(
+        None, "--container", "-c", help="Output container: mp4, mov (will use default codec)."
+    ),
+    browse: bool = typer.Option(
+        False, "--browse", "-b", help="Open folder browser to select image sequence."
+    ),
 ) -> None:
     config = load_config()
-    request = ConversionRequest(folder_name=folder, preset_name=preset, extension=extension)
+    
+    # Handle folder selection
+    folder_name = folder
+    if browse or not folder:
+        typer.secho("Opening folder browser...", fg=typer.colors.CYAN)
+        selected_folder = browse_for_sequence_folder(config.renders_folder)
+        
+        if not selected_folder:
+            typer.secho("No folder selected. Cancelled.", fg=typer.colors.YELLOW)
+            raise typer.Exit()
+        
+        # Check if selected folder is inside renders_folder
+        try:
+            relative = selected_folder.relative_to(config.renders_folder)
+            folder_name = str(relative).replace("\\", "/").split("/")[0]
+        except ValueError:
+            # Folder is outside renders_folder, use its name
+            folder_name = selected_folder.name
+            typer.secho(
+                f"Warning: Selected folder is outside configured renders_folder.", 
+                fg=typer.colors.YELLOW
+            )
+        
+        typer.secho(f"Selected: {folder_name}", fg=typer.colors.GREEN)
+    
+    if not folder_name:
+        typer.secho("Error: No folder specified. Use folder name or --browse flag.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    
+    # Resolve output format
+    output_format_key = None
+    if format:
+        # Explicit format key provided
+        if not get_codec(format):
+            typer.secho(f"Error: Unknown format key '{format}'", fg=typer.colors.RED)
+            typer.secho("Run 'frogmpeg list-formats' to see available formats.", fg=typer.colors.YELLOW)
+            raise typer.Exit(code=1)
+        output_format_key = format
+    elif container:
+        # Container provided, use default codec for that container
+        codecs = get_codecs_for_container(container)
+        if not codecs:
+            typer.secho(f"Error: Unknown container '{container}'", fg=typer.colors.RED)
+            typer.secho("Run 'frogmpeg list-containers' to see available containers.", fg=typer.colors.YELLOW)
+            raise typer.Exit(code=1)
+        # Use the first codec (typically the best/default one)
+        output_format_key = codecs[0].key
+        typer.secho(f"Using default codec for {container}: {codecs[0].display_name}", fg=typer.colors.CYAN)
+    
+    request = ConversionRequest(
+        folder_name=folder_name,
+        preset_name=preset,
+        extension=extension,
+        output_codec=output_format_key
+    )
+    
+    try:
+        convert_folder(config, request)
+    except (ConversionError, ConfigError) as exc:
+        typer.secho(f"Error: {exc}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+
+@app.command(help="Browse for folder and start conversion with interactive prompts.")
+def browse() -> None:
+    """Open folder browser, then interactively configure and convert."""
+    config = load_config()
+    
+    typer.secho("FrogMPEG Browse Mode", fg=typer.colors.GREEN, bold=True)
+    typer.echo()
+    
+    # Browse for folder
+    typer.secho("Opening folder browser...", fg=typer.colors.CYAN)
+    selected_folder = browse_for_sequence_folder(config.renders_folder)
+    
+    if not selected_folder:
+        typer.secho("No folder selected. Cancelled.", fg=typer.colors.YELLOW)
+        raise typer.Exit()
+    
+    # Determine folder name
+    try:
+        relative = selected_folder.relative_to(config.renders_folder)
+        folder_name = str(relative).replace("\\", "/").split("/")[0]
+    except ValueError:
+        folder_name = selected_folder.name
+    
+    typer.secho(f"Selected: {selected_folder}", fg=typer.colors.GREEN)
+    typer.echo()
+    
+    # Show available presets
+    if config.presets:
+        typer.secho("Available presets:", fg=typer.colors.CYAN)
+        for i, (name, preset) in enumerate(config.presets.items(), 1):
+            typer.echo(f"  {i}. {name} - {preset.description}")
+        typer.echo()
+        
+        preset_input = typer.prompt("Select preset number (or press Enter for default)", default="", show_default=False)
+        if preset_input:
+            try:
+                preset_idx = int(preset_input) - 1
+                preset_name = list(config.presets.keys())[preset_idx]
+            except (ValueError, IndexError):
+                typer.secho("Invalid preset, using default", fg=typer.colors.YELLOW)
+                preset_name = None
+        else:
+            preset_name = None
+    else:
+        preset_name = None
+    
+    # Show format options
+    typer.echo()
+    typer.secho("Output format:", fg=typer.colors.CYAN)
+    typer.echo("  1. H.264 MP4 (default - fast, universal)")
+    typer.echo("  2. HEVC MP4 (smaller files)")
+    typer.echo("  3. ProRes 422 MOV (editing)")
+    typer.echo("  4. ProRes 422 HQ MOV (high quality)")
+    typer.echo("  5. ProRes 4444 MOV (with alpha)")
+    typer.echo()
+    
+    format_map = {
+        "1": "h264-nvenc-mp4",
+        "2": "hevc-nvenc-mp4",
+        "3": "prores-422-mov",
+        "4": "prores-422-hq-mov",
+        "5": "prores-4444-mov",
+    }
+    
+    format_input = typer.prompt("Select format (1-5)", default="1")
+    output_codec = format_map.get(format_input, "h264-nvenc-mp4")
+    
+    # Create request
+    request = ConversionRequest(
+        folder_name=folder_name,
+        preset_name=preset_name,
+        output_codec=output_codec
+    )
+    
+    typer.echo()
+    typer.secho("Starting conversion...", fg=typer.colors.GREEN, bold=True)
+    typer.echo()
+    
     try:
         convert_folder(config, request)
     except (ConversionError, ConfigError) as exc:
@@ -65,10 +228,78 @@ def list_presets() -> None:
 
     typer.secho("Available presets:", fg=typer.colors.GREEN, bold=True)
     for preset in config.presets.values():
+        codec_info = ""
+        if preset.output_codec:
+            codec = preset.output_codec.codec_profile
+            codec_info = f" [{codec.display_name}]"
+        
         typer.echo(
             f"- {preset.name}: {preset.description or 'No description'} "
-            f"({preset.resolution}, {preset.bitrate}, {preset.fps}fps)"
+            f"({preset.resolution}, {preset.bitrate}, {preset.fps}fps){codec_info}"
         )
+
+
+@app.command(help="List all available output formats and codecs.")
+def list_formats() -> None:
+    typer.secho("Available Output Formats:", fg=typer.colors.GREEN, bold=True)
+    typer.echo()
+    
+    # Group by container
+    for container in sorted(CODECS_BY_CONTAINER.keys()):
+        codecs = CODECS_BY_CONTAINER[container]
+        typer.secho(f"{container.upper()} Container:", fg=typer.colors.CYAN, bold=True)
+        
+        for codec in codecs:
+            # Build badge string
+            badges = []
+            if codec.supports_gpu:
+                badges.append("[GPU]")
+            else:
+                badges.append("[CPU]")
+            if codec.supports_alpha:
+                badges.append("[Alpha]")
+            
+            badge_str = " ".join(badges)
+            
+            typer.echo(f"  • {codec.key}")
+            typer.echo(f"    {codec.display_name} {badge_str}")
+            typer.echo(f"    {codec.description}")
+            if codec.use_case:
+                typer.secho(f"    Use case: {codec.use_case}", fg=typer.colors.YELLOW)
+            typer.echo()
+
+
+@app.command(help="List available containers.")
+def list_containers() -> None:
+    typer.secho("Available containers:", fg=typer.colors.GREEN, bold=True)
+    containers = get_available_containers()
+    for container in sorted(containers):
+        codec_count = len(get_codecs_for_container(container))
+        typer.echo(f"  • {container.upper()} ({codec_count} codecs available)")
+    typer.echo()
+    typer.secho("Run 'frogmpeg list-codecs --container <name>' to see codecs for a specific container.", 
+                fg=typer.colors.CYAN)
+
+
+@app.command(help="List codecs available for a specific container.")
+def list_codecs(
+    container: str = typer.Option(..., "--container", "-c", help="Container: mp4, mov")
+) -> None:
+    codecs = get_codecs_for_container(container)
+    
+    if not codecs:
+        typer.secho(f"Unknown container: {container}", fg=typer.colors.RED)
+        typer.secho("Run 'frogmpeg list-containers' to see available containers.", fg=typer.colors.YELLOW)
+        raise typer.Exit(code=1)
+    
+    typer.secho(f"Codecs for {container.upper()}:", fg=typer.colors.GREEN, bold=True)
+    for codec in codecs:
+        gpu_marker = "[GPU]" if codec.supports_gpu else "[CPU]"
+        alpha_marker = " [Alpha]" if codec.supports_alpha else ""
+        typer.echo(f"  {gpu_marker}{alpha_marker} {codec.key}: {codec.display_name}")
+        typer.echo(f"      {codec.description}")
+    typer.echo()
+    typer.secho(f"Use --format <key> to select a specific codec", fg=typer.colors.CYAN)
 
 
 @app.command(help="Create config.json from config.example.json.")

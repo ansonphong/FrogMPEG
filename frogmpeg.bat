@@ -10,14 +10,16 @@ cd /d "%~dp0"
 if not exist "venv\" (
     echo Creating FrogMPEG virtual environment...
     python -m venv venv || goto :error
-    call venv\Scripts\activate.bat
-    pip install --upgrade pip
-    pip install -e . || goto :error
-) else (
-    call venv\Scripts\activate.bat
+    echo.
+    echo Installing FrogMPEG...
+    venv\Scripts\python.exe -m pip install --upgrade pip
+    venv\Scripts\python.exe -m pip install -e . || goto :error
+    echo.
+    echo Setup complete!
+    echo.
 )
 
-python -m frogmpeg %*
+venv\Scripts\python.exe -m frogmpeg %*
 goto :eof
 
 :error

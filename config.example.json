@@ -10,30 +10,66 @@
     "bitrate": "100M",
     "file_extension": "jpeg",
     "fps": 60,
-    "preset_name": "fulldome-2k"
+    "preset_name": "fulldome-2k",
+    "output_codec": "h264-nvenc-mp4"
   },
 
   "presets": [
     {
       "name": "fulldome-2k",
-      "description": "Standard 2K fulldome render",
+      "description": "Standard 2K fulldome render (H.264)",
       "resolution": "2048x2048",
       "bitrate": "100M",
-      "fps": 60
+      "fps": 60,
+      "output_codec": "h264-nvenc-mp4"
     },
     {
       "name": "fulldome-4k",
-      "description": "High quality 4K fulldome",
+      "description": "High quality 4K fulldome (H.264)",
       "resolution": "4096x4096",
       "bitrate": "200M",
-      "fps": 60
+      "fps": 60,
+      "output_codec": "h264-nvenc-mp4"
+    },
+    {
+      "name": "fulldome-4k-hevc",
+      "description": "4K fulldome with HEVC (smaller file size)",
+      "resolution": "4096x4096",
+      "bitrate": "150M",
+      "fps": 60,
+      "output_codec": "hevc-nvenc-mp4"
+    },
+    {
+      "name": "fulldome-prores",
+      "description": "ProRes 422 for professional editing",
+      "resolution": "2048x2048",
+      "bitrate": "100M",
+      "fps": 60,
+      "output_codec": "prores-422-mov"
+    },
+    {
+      "name": "fulldome-prores-hq",
+      "description": "ProRes 422 HQ for high-end production",
+      "resolution": "4096x4096",
+      "bitrate": "200M",
+      "fps": 60,
+      "output_codec": "prores-422-hq-mov"
+    },
+    {
+      "name": "vfx-prores-4444",
+      "description": "ProRes 4444 with alpha for VFX work",
+      "resolution": "4096x4096",
+      "bitrate": "200M",
+      "fps": 60,
+      "output_codec": "prores-4444-mov"
     },
     {
       "name": "preview",
       "description": "Faster preview output",
       "resolution": "1024x1024",
       "bitrate": "25M",
-      "fps": 30
+      "fps": 30,
+      "output_codec": "h264-nvenc-mp4"
     }
   ],
 
@@ -56,4 +92,3 @@
     "auto_select_latest": true
   }
 }
-

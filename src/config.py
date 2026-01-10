@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .formats import CodecProfile, get_codec
+
 
 class ConfigError(RuntimeError):
     """Raised when the configuration file is invalid."""
@@ -20,12 +22,32 @@ CONFIG_EXAMPLE_FILE = PROJECT_ROOT / "config.example.json"
 
 
 @dataclass(frozen=True)
+class OutputCodec:
+    """Output codec configuration for a preset or conversion request."""
+    
+    codec_profile: CodecProfile
+    
+    @property
+    def container(self) -> str:
+        return self.codec_profile.container
+    
+    @property
+    def codec_key(self) -> str:
+        return self.codec_profile.key
+    
+    @property
+    def extension(self) -> str:
+        return self.codec_profile.container
+
+
+@dataclass(frozen=True)
 class Preset:
     name: str
     resolution: str
     bitrate: str
     fps: int
     description: str = ""
+    output_codec: Optional[OutputCodec] = None  # If None, uses defaults
 
     @property
     def width(self) -> int:
@@ -43,6 +65,7 @@ class Defaults:
     file_extension: str
     fps: int
     preset_name: Optional[str] = None
+    output_codec: Optional[str] = None  # Default codec key (e.g., "h264-nvenc-mp4")
 
 
 @dataclass(frozen=True)
@@ -99,6 +122,30 @@ class Config:
             fps=self.defaults.fps,
             description="Default configuration"
         )
+    
+    def get_output_codec(self, codec_key: Optional[str] = None) -> OutputCodec:
+        """Get output codec from codec key, falling back to defaults."""
+        # Use provided key
+        if codec_key:
+            codec = get_codec(codec_key)
+            if not codec:
+                raise ConfigError(f"Unknown codec key: {codec_key}")
+            return OutputCodec(codec_profile=codec)
+        
+        # Use default from config
+        if self.defaults.output_codec:
+            codec = get_codec(self.defaults.output_codec)
+            if not codec:
+                raise ConfigError(
+                    f"Default output codec '{self.defaults.output_codec}' is invalid"
+                )
+            return OutputCodec(codec_profile=codec)
+        
+        # Fall back to H.264 NVENC MP4 (original behavior)
+        codec = get_codec("h264-nvenc-mp4")
+        if not codec:
+            raise ConfigError("Default H.264 codec not found in registry")
+        return OutputCodec(codec_profile=codec)
 
 
 def ensure_config_exists() -> Path:
@@ -138,13 +185,25 @@ def _load_presets(presets_data: List[Dict[str, Any]]) -> Dict[str, Preset]:
         bitrate = _validate_required(preset, "bitrate")
         fps = int(_validate_required(preset, "fps"))
         description = preset.get("description", "")
+        
+        # Load output codec if specified
+        output_codec = None
+        output_codec_key = preset.get("output_codec")
+        if output_codec_key:
+            codec = get_codec(output_codec_key)
+            if not codec:
+                raise ConfigError(
+                    f"Preset '{name}' references unknown output codec: {output_codec_key}"
+                )
+            output_codec = OutputCodec(codec_profile=codec)
 
         presets[name] = Preset(
             name=name,
             resolution=resolution,
             bitrate=bitrate,
             fps=fps,
-            description=description
+            description=description,
+            output_codec=output_codec
         )
     return presets
 
@@ -174,7 +233,8 @@ def load_config() -> Config:
         bitrate=_validate_required(defaults_data, "bitrate"),
         file_extension=_validate_required(defaults_data, "file_extension"),
         fps=int(_validate_required(defaults_data, "fps")),
-        preset_name=defaults_data.get("preset_name")
+        preset_name=defaults_data.get("preset_name"),
+        output_codec=defaults_data.get("output_codec")
     )
 
     presets_data = raw.get("presets", [])

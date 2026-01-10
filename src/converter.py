@@ -11,9 +11,10 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
-from .config import Config, Preset
+from .config import Config, OutputCodec, Preset
+from .formats import CodecProfile
 
 
 class ConversionError(RuntimeError):
@@ -28,6 +29,7 @@ class ConversionRequest:
     folder_name: str
     preset_name: str | None
     extension: str | None = None
+    output_codec: str | None = None  # Override output codec
 
 
 def extract_sequence_numbers(filename: str) -> Tuple[int, ...]:
@@ -61,99 +63,193 @@ def create_file_list(images: Sequence[Path]) -> Tuple[str, int]:
     return temp_list.name, len(images)
 
 
+# ============================================================================
+# CODEC-SPECIFIC COMMAND BUILDERS
+# ============================================================================
+
+def build_h264_command(
+    config: Config,
+    preset: Preset,
+    codec_profile: CodecProfile,
+    use_gpu: bool,
+) -> List[str]:
+    """Build H.264 encoding parameters."""
+    cmd: List[str] = []
+    
+    if use_gpu and codec_profile.supports_gpu:
+        # NVENC GPU encoding
+        cmd.extend([
+            "-c:v", codec_profile.encoder_name,
+            "-preset", config.encoding.gpu_preset,
+            "-rc", "vbr",
+            "-b:v", preset.bitrate,
+            "-maxrate", preset.bitrate,
+            "-bufsize", preset.bitrate,
+            "-g", str(config.encoding.keyframe_interval),
+            "-bf", str(config.encoding.b_frames),
+            "-rc-lookahead", str(config.encoding.rc_lookahead),
+            "-spatial-aq", str(config.encoding.spatial_aq),
+            "-temporal-aq", str(config.encoding.temporal_aq),
+            "-pix_fmt", codec_profile.pixel_format,
+        ])
+    else:
+        # CPU encoding
+        cmd.extend([
+            "-c:v", "libx264",
+            "-preset", config.encoding.cpu_preset,
+            "-tune", config.encoding.tune,
+            "-b:v", preset.bitrate,
+            "-g", str(config.encoding.keyframe_interval),
+            "-bf", str(config.encoding.b_frames),
+            "-pix_fmt", codec_profile.pixel_format,
+        ])
+    
+    return cmd
+
+
+def build_hevc_command(
+    config: Config,
+    preset: Preset,
+    codec_profile: CodecProfile,
+    use_gpu: bool,
+) -> List[str]:
+    """Build HEVC/H.265 encoding parameters."""
+    cmd: List[str] = []
+    
+    if use_gpu and codec_profile.supports_gpu:
+        # NVENC GPU encoding
+        cmd.extend([
+            "-c:v", codec_profile.encoder_name,
+            "-preset", config.encoding.gpu_preset,
+            "-rc", "vbr",
+            "-b:v", preset.bitrate,
+            "-maxrate", preset.bitrate,
+            "-bufsize", preset.bitrate,
+            "-g", str(config.encoding.keyframe_interval),
+            "-bf", str(config.encoding.b_frames),
+            "-rc-lookahead", str(config.encoding.rc_lookahead),
+            "-spatial-aq", str(config.encoding.spatial_aq),
+            "-temporal-aq", str(config.encoding.temporal_aq),
+            "-pix_fmt", codec_profile.pixel_format,
+        ])
+    else:
+        # CPU encoding with x265
+        cmd.extend([
+            "-c:v", "libx265",
+            "-preset", config.encoding.cpu_preset,
+            "-b:v", preset.bitrate,
+            "-g", str(config.encoding.keyframe_interval),
+            "-pix_fmt", codec_profile.pixel_format,
+        ])
+    
+    return cmd
+
+
+def build_prores_command(
+    config: Config,
+    preset: Preset,
+    codec_profile: CodecProfile,
+    use_gpu: bool,
+) -> List[str]:
+    """Build ProRes encoding parameters."""
+    cmd: List[str] = [
+        "-c:v", codec_profile.encoder_name,
+        "-profile:v", codec_profile.profile,
+        "-pix_fmt", codec_profile.pixel_format,
+    ]
+    
+    # ProRes uses quality scale instead of bitrate
+    # Quality values: 9-13 for proxy, 0-32 for others (lower = better)
+    if codec_profile.profile == "0":  # Proxy
+        cmd.extend(["-qscale:v", "11"])
+    elif codec_profile.profile == "1":  # LT
+        cmd.extend(["-qscale:v", "9"])
+    elif codec_profile.profile == "2":  # 422
+        cmd.extend(["-qscale:v", "6"])
+    elif codec_profile.profile == "3":  # 422 HQ
+        cmd.extend(["-qscale:v", "4"])
+    elif codec_profile.profile in ["4", "5"]:  # 4444 / 4444 XQ
+        cmd.extend(["-qscale:v", "3"])
+    
+    # ProRes doesn't use GOP settings in the same way
+    # But we can set vendor tag for compatibility
+    cmd.extend(["-vendor", "apl0"])
+    
+    return cmd
+
+
+def build_codec_command(
+    config: Config,
+    preset: Preset,
+    codec_profile: CodecProfile,
+    use_gpu: bool,
+) -> List[str]:
+    """Build codec-specific encoding parameters based on codec family."""
+    
+    if codec_profile.codec_name == "h264":
+        return build_h264_command(config, preset, codec_profile, use_gpu)
+    elif codec_profile.codec_name == "hevc":
+        return build_hevc_command(config, preset, codec_profile, use_gpu)
+    elif codec_profile.codec_name == "prores":
+        return build_prores_command(config, preset, codec_profile, use_gpu)
+    else:
+        raise ConversionError(f"Unsupported codec: {codec_profile.codec_name}")
+
+
 def build_ffmpeg_command(
     config: Config,
     preset: Preset,
+    output_codec: OutputCodec,
     file_list: str,
     output_path: Path,
     use_gpu: bool,
 ) -> List[str]:
-    """Build FFmpeg command for the requested conversion."""
+    """Build complete FFmpeg command for the requested conversion."""
     fps = preset.fps
+    codec_profile = output_codec.codec_profile
+    
+    # Base command with input
     cmd: List[str] = [
         str(config.ffmpeg_path),
-        "-f",
-        "concat",
-        "-safe",
-        "0",
-        "-r",
-        str(fps),
-        "-i",
-        file_list,
-        "-vf",
-        f"scale={preset.width}:{preset.height}",
+        "-f", "concat",
+        "-safe", "0",
+        "-r", str(fps),
+        "-i", file_list,
+        "-vf", f"scale={preset.width}:{preset.height}",
     ]
-
-    if use_gpu:
-        cmd.extend(
-            [
-                "-c:v",
-                "h264_nvenc",
-                "-preset",
-                config.encoding.gpu_preset,
-                "-rc",
-                "vbr",
-                "-b:v",
-                preset.bitrate,
-                "-maxrate",
-                preset.bitrate,
-                "-bufsize",
-                preset.bitrate,
-                "-g",
-                str(config.encoding.keyframe_interval),
-                "-bf",
-                str(config.encoding.b_frames),
-                "-rc-lookahead",
-                str(config.encoding.rc_lookahead),
-                "-spatial-aq",
-                str(config.encoding.spatial_aq),
-                "-temporal-aq",
-                str(config.encoding.temporal_aq),
-                "-pix_fmt",
-                config.encoding.pixel_format,
-            ]
-        )
-    else:
-        cmd.extend(
-            [
-                "-c:v",
-                "libx264",
-                "-preset",
-                config.encoding.cpu_preset,
-                "-tune",
-                config.encoding.tune,
-                "-b:v",
-                preset.bitrate,
-                "-g",
-                str(config.encoding.keyframe_interval),
-                "-bf",
-                str(config.encoding.b_frames),
-                "-pix_fmt",
-                config.encoding.pixel_format,
-            ]
-        )
-
-    cmd.extend(
-        [
-            "-loglevel",
-            "error",
-            "-stats",
-            str(output_path),
-        ]
-    )
-
+    
+    # Add codec-specific encoding parameters
+    codec_cmd = build_codec_command(config, preset, codec_profile, use_gpu)
+    cmd.extend(codec_cmd)
+    
+    # Output settings
+    cmd.extend([
+        "-loglevel", "error",
+        "-stats",
+        str(output_path),
+    ])
+    
     return cmd
 
 
-def build_output_path(config: Config, folder_name: str, preset: Preset) -> Path:
+def build_output_path(
+    config: Config,
+    folder_name: str,
+    preset: Preset,
+    output_codec: OutputCodec,
+) -> Path:
     """Generate timestamped output path and avoid overwriting."""
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    base_name = f"{folder_name}_{timestamp}_{preset.resolution}_{preset.fps}fps"
-    output_path = config.output_folder / f"{base_name}.mp4"
+    codec_name = output_codec.codec_profile.key
+    base_name = f"{folder_name}_{timestamp}_{preset.resolution}_{preset.fps}fps_{codec_name}"
+    
+    # Use correct extension from codec profile
+    extension = output_codec.extension
+    output_path = config.output_folder / f"{base_name}.{extension}"
 
     counter = 1
     while output_path.exists():
-        output_path = config.output_folder / f"{base_name}_{counter}.mp4"
+        output_path = config.output_folder / f"{base_name}_{counter}.{extension}"
         counter += 1
 
     return output_path
@@ -172,6 +268,17 @@ def convert_folder(config: Config, request: ConversionRequest) -> Path:
     preset = config.get_preset(request.preset_name)
     extension = (request.extension or config.defaults.file_extension).lower()
 
+    # Determine output codec
+    if request.output_codec:
+        # Use codec from request
+        output_codec = config.get_output_codec(request.output_codec)
+    elif preset.output_codec:
+        # Use codec from preset
+        output_codec = preset.output_codec
+    else:
+        # Use default codec
+        output_codec = config.get_output_codec()
+
     folder_path = config.renders_folder / request.folder_name
     if not folder_path.exists():
         raise ConversionError(f"Folder '{request.folder_name}' not found inside renders folder.")
@@ -179,19 +286,25 @@ def convert_folder(config: Config, request: ConversionRequest) -> Path:
     images = list_images(folder_path, extension)
     file_list, frame_count = create_file_list(images)
 
+    codec_profile = output_codec.codec_profile
     print(f"Found {frame_count} *.{extension} files in {folder_path.name}")
     print(f"Using preset: {preset.name} ({preset.resolution} @ {preset.fps}fps, {preset.bitrate})")
+    print(f"Output codec: {codec_profile.display_name} ({codec_profile.container.upper()})")
 
-    output_path = build_output_path(config, request.folder_name, preset)
-    cmd = build_ffmpeg_command(config, preset, file_list, output_path, config.encoding.use_gpu)
+    output_path = build_output_path(config, request.folder_name, preset, output_codec)
+    
+    # Determine if we should try GPU encoding
+    use_gpu = config.encoding.use_gpu and codec_profile.supports_gpu
+    
+    cmd = build_ffmpeg_command(config, preset, output_codec, file_list, output_path, use_gpu)
 
     try:
         run_ffmpeg(cmd)
     except ConversionError:
-        # NVENC fallback
-        if config.encoding.use_gpu:
-            print("NVENC failed, retrying with CPU encoding...")
-            cmd = build_ffmpeg_command(config, preset, file_list, output_path, use_gpu=False)
+        # GPU fallback for codecs that support it
+        if use_gpu:
+            print(f"GPU encoding failed, retrying with CPU...")
+            cmd = build_ffmpeg_command(config, preset, output_codec, file_list, output_path, use_gpu=False)
             run_ffmpeg(cmd)
         else:
             raise
@@ -203,4 +316,3 @@ def convert_folder(config: Config, request: ConversionRequest) -> Path:
 
     print(f"Ribbiting success! Output saved to {output_path}")
     return output_path
-
