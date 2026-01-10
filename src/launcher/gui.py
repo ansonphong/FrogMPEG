@@ -68,32 +68,26 @@ class LauncherGui:
     def create_header(self) -> Panel:
         """Create the header panel with ASCII logo in frog theme."""
         logo = Text()
-        logo.append("\n")
-        logo.append("    ███████╗██████╗  ██████╗  ██████╗ ███╗   ███╗██████╗ ███████╗ ██████╗ \n", style=COLORS["success"])
-        logo.append("    ██╔════╝██╔══██╗██╔═══██╗██╔════╝ ████╗ ████║██╔══██╗██╔════╝██╔════╝ \n", style=COLORS["bright"])
-        logo.append("    █████╗  ██████╔╝██║   ██║██║  ███╗██╔████╔██║██████╔╝█████╗  ██║  ███╗\n", style=COLORS["bright"])
-        logo.append("    ██╔══╝  ██╔══██╗██║   ██║██║   ██║██║╚██╔╝██║██╔═══╝ ██╔══╝  ██║   ██║\n", style=COLORS["primary"])
-        logo.append("    ██║     ██║  ██║╚██████╔╝╚██████╔╝██║ ╚═╝ ██║██║     ███████╗╚██████╔╝\n", style=COLORS["primary"])
-        logo.append("    ╚═╝     ╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚══════╝ ╚═════╝ \n", style=COLORS["muted"])
-        logo.append("\n")
-        logo.append("                     🐸 Multi-Format Video Converter 🐸", style=COLORS["emerald"])
-        logo.append("\n")
+        # Simpler header that fits better
+        logo.append("\n ╔═══════════════════════════════════════════════════════════════╗\n", style=COLORS["success"])
+        logo.append(" ║                        🐸 FROGMPEG 🐸                        ║\n", style=COLORS["success"])
+        logo.append(" ╚═══════════════════════════════════════════════════════════════╝\n", style=COLORS["success"])
+        logo.append("           Multi-Format Video & Image Converter v2.0\n", style=COLORS["emerald"])
         
-        return Panel(logo, box=box.DOUBLE, style=COLORS["bright"])
+        return Panel(logo, box=box.DOUBLE, style=COLORS["bright"], padding=(0, 0))
     
     def create_mode_panel(self, mode: ModeOption, is_selected: bool) -> Panel:
         """Create a panel for a single mode option using theme colors."""
         content = Text()
         
         # Mode icon and title with click instruction
-        content.append(f"\n{mode.icon}  ", style="")
+        content.append(f"{mode.icon}  ", style="")
         if is_selected:
-            content.append(f"{mode.title}\n\n", style=COLORS["success"])
+            content.append(f"{mode.title}\n", style=COLORS["success"])
             content.append(mode.description, style=COLORS["emerald"])
         else:
-            content.append(f"{mode.title}\n\n", style=COLORS["muted"])
+            content.append(f"{mode.title}\n", style=COLORS["muted"])
             content.append(mode.description, style=COLORS["muted"])
-        content.append("\n")
         
         style = COLORS["active_border"] if is_selected else COLORS["inactive_border"]
         border = box.DOUBLE if is_selected else box.ROUNDED
@@ -110,7 +104,7 @@ class LauncherGui:
             title=title,
             box=border,
             style=style,
-            padding=(1, 2),
+            padding=(0, 1),
         )
     
     def create_modes_layout(self) -> Layout:
@@ -140,9 +134,9 @@ class LauncherGui:
         """Render the full launcher UI."""
         layout = Layout()
         layout.split_column(
-            Layout(self.create_header(), size=10),
-            Layout(self.create_modes_layout(), size=12),
-            Layout(self.create_footer(), size=3),
+            Layout(self.create_header(), name="header"),
+            Layout(self.create_modes_layout(), name="modes"),
+            Layout(self.create_footer(), name="footer", size=3),
         )
         return layout
     
