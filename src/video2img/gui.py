@@ -219,7 +219,8 @@ class Video2ImgGui:
         segments = 20
         filled = int(self.jpeg_quality / 5)  # How many segments to fill
         
-        bar_color = COLORS["active_selected"] if is_active else COLORS["success"]
+        # Green when selected, white when not
+        bar_color = COLORS["success"] if is_active else COLORS["bright"]
         empty_color = COLORS["muted"]
         
         bar = ""
