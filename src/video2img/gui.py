@@ -96,7 +96,7 @@ class Video2ImgGui:
         self.png_compression = 6
         
         # Navigation (same pattern as img2video)
-        self.sections = ["video", "format", "mode"]
+        self.sections = ["video", "format", "mode", "quality"]
         self.current_section = "video"
         
         # Scan for recent videos
@@ -184,6 +184,7 @@ class Video2ImgGui:
         
         is_active_format = self.current_section == "format"
         is_active_mode = self.current_section == "mode"
+        is_active_quality = self.current_section == "quality"
         
         # Output format selection
         format_display = "  ".join(
@@ -199,9 +200,37 @@ class Video2ImgGui:
         )
         table.add_row("[3] Extract:", mode_display)
         
-        is_active = self.current_section in ["format", "mode"]
-        title = "Output Settings (←→)" if is_active else "Output Settings"
+        # JPEG Quality (only show if JPEG is selected)
+        current_format = self.output_formats[self.selected_format_idx]
+        if current_format.key == "jpeg":
+            quality_style = COLORS["active_selected"] if is_active_quality else COLORS["inactive_selected"] if True else COLORS["gold"]
+            quality_bar = self._create_quality_bar()
+            table.add_row("[4] Quality:", quality_bar)
+        
+        is_active = self.current_section in ["format", "mode", "quality"]
+        title = "Output Settings (←→, ↑↓ for quality)" if is_active else "Output Settings"
         return Panel(table, title=title, box=box.ROUNDED, style=get_panel_style(is_active))
+    
+    def _create_quality_bar(self) -> str:
+        """Create a visual quality bar for JPEG quality."""
+        is_active = self.current_section == "quality"
+        
+        # Quality bar: 20 segments representing 5% each (from 0-100)
+        segments = 20
+        filled = int(self.jpeg_quality / 5)  # How many segments to fill
+        
+        bar_color = COLORS["active_selected"] if is_active else COLORS["success"]
+        empty_color = COLORS["muted"]
+        
+        bar = ""
+        for i in range(segments):
+            if i < filled:
+                bar += "█"
+            else:
+                bar += "░"
+        
+        quality_text = f"[{bar_color}]{bar}[/] [{COLORS['gold']}]{self.jpeg_quality}%[/]"
+        return quality_text
     
     def create_preview_panel(self) -> Panel:
         """Panel showing extraction preview/estimates."""
@@ -314,6 +343,17 @@ class Video2ImgGui:
                 self.selected_mode_idx = max(0, self.selected_mode_idx - 1)
             elif key == "M":
                 self.selected_mode_idx = min(len(self.extraction_modes) - 1, self.selected_mode_idx + 1)
+        
+        elif self.current_section == "quality":
+            # Adjust JPEG quality with arrow keys
+            if key == "H":  # up - increase quality by 5
+                self.jpeg_quality = min(100, self.jpeg_quality + 5)
+            elif key == "P":  # down - decrease quality by 5
+                self.jpeg_quality = max(50, self.jpeg_quality - 5)
+            elif key == "K":  # left - decrease by 1
+                self.jpeg_quality = max(50, self.jpeg_quality - 1)
+            elif key == "M":  # right - increase by 1
+                self.jpeg_quality = min(100, self.jpeg_quality + 1)
         
         return None
     
