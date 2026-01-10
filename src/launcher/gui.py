@@ -197,8 +197,8 @@ class LauncherGui:
                 if result:
                     return result
                 
-                # Only update when key is pressed
-                live.update(self.render(), refresh=True)
+                # Update layout without forcing immediate refresh
+                live.update(self.render())
 
 
 def run_launcher() -> None:
