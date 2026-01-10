@@ -1,30 +1,57 @@
-# 🐸 FrogMPEG
+# 🐸 FrogMPEG V2.0.0
 
-FrogMPEG is a **drop-in, frog-themed image sequence converter** built for fulldome and advanced visualization pipelines. Convert thousands of renders with hardware-accelerated FFmpeg supporting **H.264, HEVC, and Apple ProRes** codecs — all while keeping your project repo clean.
+FrogMPEG is a **dual-mode, frog-themed video converter** built for fulldome and advanced visualization pipelines. Convert image sequences to video OR extract frames from video — all with hardware-accelerated FFmpeg supporting **H.264, HEVC, and Apple ProRes** codecs.
+
+## ✨ What's New in V2.0.0
+
+- **🎬 Image to Video**: Convert image sequences (PNG, JPEG) to video (H.264, HEVC, ProRes)
+- **🖼️ Video to Images**: Extract frames from video files to image sequences (PNG, JPEG, TIFF, EXR)
+- **🚀 Launcher GUI**: Choose your mode from a beautiful main menu
+- **🎨 Centralized Theme**: Consistent frog-themed colors across all GUIs
+- **📦 Modular Architecture**: Separate pipelines with clean separation of concerns
 
 ## Features
 
-- **Multi-codec support**: H.264, HEVC/H.265, ProRes (all variants)
-- **GPU-accelerated** encoding (NVENC) with automatic CPU fallback
-- **Two-level hierarchical GUI** for intuitive container and codec selection
-- **ProRes support**: All variants including 4444 with alpha channel
-- **Advanced configuration** via `config.json` with presets, encoder tuning, themes
-- **Project-friendly layout** – keep FrogMPEG versioned while local config stays private
-- **Frog branding** everywhere: ASCII art, emojis, and ribbiting logs
+### Image-to-Video Pipeline
+- Multi-codec support: H.264, HEVC/H.265, ProRes (all variants)
+- GPU-accelerated encoding (NVENC) with automatic CPU fallback
+- Two-level hierarchical GUI for intuitive container and codec selection
+- ProRes support: All variants including 4444 with alpha channel
+- Advanced configuration via `config.json` with presets and encoder tuning
+
+### Video-to-Image Pipeline (NEW!)
+- Extract all frames or at specific frame rates (1fps, 5fps, 24fps, 30fps, etc.)
+- Output formats: PNG, JPEG, TIFF, OpenEXR
+- Video metadata display: codec, resolution, fps, frame count
+- Size estimation before extraction
+- Quality control for JPEG and PNG compression
+
+### Unified Experience
+- Consistent keyboard shortcuts across all GUIs
+- Frog branding everywhere: ASCII art, emojis, and ribbiting logs
+- Project-friendly layout – keep FrogMPEG versioned while local config stays private
 
 ## Supported Formats
 
-### MP4 Container
+### Video Output (Image-to-Video)
+
+**MP4 Container**
 - **H.264** (NVENC/CPU) - Universal playback
 - **HEVC/H.265** (NVENC/CPU) - 50% smaller files, 4K optimized
 
-### MOV Container
+**MOV Container**
 - **ProRes Proxy** - Offline editing
 - **ProRes LT** - Standard editing
 - **ProRes 422** - Broadcast quality (10-bit)
 - **ProRes 422 HQ** - High-end production (10-bit)
 - **ProRes 4444** - VFX with alpha channel (10-bit)
 - **ProRes 4444 XQ** - Maximum quality (10-bit)
+
+### Image Output (Video-to-Image)
+- **PNG** - Lossless, supports alpha, 16-bit support
+- **JPEG** - Lossy compression, smallest files, quality control
+- **TIFF** - Lossless, professional workflows, 16-bit support
+- **OpenEXR** - HDR, VFX workflows, 16/32-bit float
 
 ## Quick Start
 
@@ -35,9 +62,9 @@ cd FrogMPEG
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-python -m frogmpeg init        # copies config.example.json to config.json
-python -m frogmpeg validate
-python -m frogmpeg --gui       # or: frogmpeg-gui.bat on Windows
+python -m src init           # copies config.example.json to config.json
+python -m src validate
+python -m src gui            # or: frogmpeg-gui.bat on Windows
 ```
 
 ## Configuration
@@ -59,6 +86,13 @@ python -m frogmpeg --gui       # or: frogmpeg-gui.bat on Windows
     "file_extension": "jpeg",
     "fps": 60,
     "output_codec": "h264-nvenc-mp4"
+  },
+  
+  "extraction": {
+    "output_format": "png",
+    "jpeg_quality": 95,
+    "png_compression": 6,
+    "name_pattern": "{video_name}_%05d"
   },
 
   "presets": [
@@ -83,64 +117,121 @@ python -m frogmpeg --gui       # or: frogmpeg-gui.bat on Windows
 
 ## Commands
 
-| Command                            | Description                           |
-|------------------------------------|---------------------------------------|
-| `python -m frogmpeg gui`           | Launch GUI with codec selection        |
-| `python -m frogmpeg browse`        | Interactive browser with folder picker |
-| `python -m frogmpeg convert FOLDER` | Convert with defaults                  |
-| `python -m frogmpeg convert --browse` | Browse and convert in one command    |
-| `python -m frogmpeg convert FOLDER --format prores-422-mov` | Convert to ProRes |
-| `python -m frogmpeg list-formats`  | Show all available codecs              |
-| `python -m frogmpeg list-presets`  | Show available presets                 |
-| `python -m frogmpeg init`          | Create config.json from example        |
-| `python -m frogmpeg validate`      | Validate config and environment        |
+### Main Commands
+
+| Command | Description |
+|---------|-------------|
+| `python -m src gui` | Launch launcher - choose image→video or video→image |
+| `python -m src img2video` | Launch image-to-video GUI directly |
+| `python -m src video2img` | Launch video-to-image GUI directly |
+
+### Image-to-Video Commands
+
+| Command | Description |
+|---------|-------------|
+| `python -m src browse` | Interactive browser with folder picker |
+| `python -m src convert FOLDER` | Convert with defaults |
+| `python -m src convert --browse` | Browse and convert in one command |
+| `python -m src convert FOLDER --format prores-422-mov` | Convert to ProRes |
+| `python -m src list-formats` | Show all available video codecs |
+| `python -m src list-presets` | Show available presets |
+
+### Video-to-Image Commands (NEW!)
+
+| Command | Description |
+|---------|-------------|
+| `python -m src extract VIDEO.mp4` | Extract all frames to PNG |
+| `python -m src extract VIDEO.mp4 --fps 24` | Extract at 24fps |
+| `python -m src extract VIDEO.mp4 --format jpeg --quality 95` | Extract as high-quality JPEG |
+| `python -m src extract VIDEO.mp4 --start 10 --end 60` | Extract frames from 10s to 60s |
+| `python -m src extract VIDEO.mp4 -o custom_folder` | Specify output folder |
+
+### Configuration Commands
+
+| Command | Description |
+|---------|-------------|
+| `python -m src init` | Create config.json from example |
+| `python -m src validate` | Validate config and environment |
 
 Batch launchers (`frogmpeg-gui.bat`, `frogmpeg.bat`) call the same commands after auto-activating the local venv.
 
-### GUI Controls
+### GUI Controls (All GUIs)
 
-- **B** - Browse for folder (opens native OS dialog)
-- **Tab** - Move to next section
-- **↑↓** - Navigate lists (folders, codecs)
-- **←→** - Switch options (presets, extensions, containers)
-- **S** - Start conversion
-- **R** - Refresh folder list
-- **Q** - Quit
+Universal shortcuts across launcher, image-to-video, and video-to-image GUIs:
+
+- **[S]** - Start conversion/extraction
+- **[B]** - Browse for folder/file
+- **[L]** - Return to launcher (from sub-GUIs)
+- **[R]** - Refresh folder/video list
+- **[Q]** - Quit application
+- **[Tab]** / **[Enter]** - Move to next section
+- **[Shift+Tab]** - Move to previous section
+- **[↑↓]** - Navigate lists (folders, videos, codecs)
+- **[←→]** - Switch options (presets, formats, modes)
 
 ### Format Selection Examples
 
+**Image to Video:**
 ```bash
 # Interactive browse mode with dialogs
-python -m frogmpeg browse
+python -m src browse
 
 # Browse for folder, then convert
-python -m frogmpeg convert --browse --format prores-422-mov
+python -m src convert --browse --format prores-422-mov
+
 # ProRes 422 for editing
-python -m frogmpeg convert my_folder --format prores-422-mov
+python -m src convert my_folder --format prores-422-mov
 
 # HEVC for smaller files
-python -m frogmpeg convert my_folder --format hevc-nvenc-mp4
+python -m src convert my_folder --format hevc-nvenc-mp4
 
 # ProRes 4444 with alpha
-python -m frogmpeg convert vfx_renders --format prores-4444-mov
+python -m src convert vfx_renders --format prores-4444-mov
 
 # Use MOV container with default codec
-python -m frogmpeg convert my_folder --container mov
+python -m src convert my_folder --container mov
+```
+
+**Video to Images:**
+```bash
+# Extract all frames as PNG
+python -m src extract my_video.mp4
+
+# Extract at 24fps as JPEG
+python -m src extract my_video.mp4 --fps 24 --format jpeg
+
+# Extract time range (10s to 60s)
+python -m src extract my_video.mp4 --start 10 --end 60
+
+# High-quality JPEG extraction
+python -m src extract my_video.mp4 --format jpeg --quality 98
+
+# Extract to specific folder
+python -m src extract my_video.mp4 --output ./my_frames
 ```
 
 ## Branding
 
-Every run greets you with a frog:
+The launcher greets you with ASCII art:
 
 ```
-     🐸 FrogMPEG 🐸
-  Multi-Codec Video Converter
-  with ProRes Support!
+  ______                __  ___ ____  ________ 
+ / ____/________  ____ /  |/  // __ \/ ____/ / 
+/ /_  / ___/ __ \/ __ `/ /|_/ // /_/ / __/ / /  
+/ __/ / /  / /_/ / /_/ / /  / // ____/ /___/ /___
+/_/   /_/   \____/\__, /_/  /_//_/   /_____/_____/
+                /____/                            
+
+        Multi-Format Video Converter
 ```
 
-- Console colors: neon greens & cyan gradients
-- Codec badges: 🟢 GPU / 🔵 CPU / 🟡 Alpha
-- Messages like "Hopping through frames…" and "Ribbiting success!"
+**Frog Theme Colors:**
+- Primary: Bright greens, emeralds, and spring greens
+- Secondary: Yellows, golds, and ambers
+- Selection: Active sections = WHITE, Inactive = GREEN
+- Badges: [GPU] lime green, [CPU] muted, [Alpha] amber
+
+Messages like "🐸 Converting..." and "Ribbiting success!"
 
 ## Documentation
 
