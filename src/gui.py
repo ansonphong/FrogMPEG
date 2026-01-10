@@ -40,18 +40,6 @@ from .formats import (
     get_codecs_for_container,
 )
 
-
-def resize_console_window() -> None:
-    """Resize the console window to accommodate the full GUI."""
-    if sys.platform == "win32":
-        try:
-            # Set console buffer and window size (cols=120, rows=50)
-            # This ensures the GUI fits comfortably
-            os.system("mode con: cols=120 lines=50")
-        except Exception:  # pragma: no cover
-            pass  # If resizing fails, continue anyway
-
-
 console = Console()
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -73,8 +61,9 @@ COLORS = {
     "dim_green": "dark_green",       # Dimmed borders/text
     "dim_yellow": "olive_drab1",     # Dimmed yellow
     
-    # Semantic colors
-    "selected": "bold bright_green reverse",
+    # Semantic colors - ACTIVE vs INACTIVE
+    "active_selected": "bold white reverse",        # Currently active section's selection (WHITE)
+    "inactive_selected": "bold bright_green reverse",  # Inactive section's selection (GREEN)
     "active_border": "bold bright_green",
     "inactive_border": "dark_green",
     "label": "spring_green2",        # Labels/titles
@@ -147,14 +136,17 @@ class FrogMPEGGui:
         table.add_column("Files", justify="right", style=COLORS["gold"])
         table.add_column("Modified", justify="right", style=COLORS["amber"])
 
+        is_active = self.current_section == "folders"
+        
         if not self.folders:
             table.add_row("", "[dim]No folders found[/]", "", "")
         else:
             for idx, folder in enumerate(self.folders[:8]):
                 indicator = "►" if idx == self.selected_folder_idx else " "
                 if idx == self.selected_folder_idx:
-                    style = COLORS["selected"]
-                    indicator_style = COLORS["bright"]
+                    # Active section = WHITE, Inactive section = GREEN
+                    style = COLORS["active_selected"] if is_active else COLORS["inactive_selected"]
+                    indicator_style = "bold white" if is_active else COLORS["bright"]
                 else:
                     style = ""
                     indicator_style = COLORS["muted"]
@@ -165,8 +157,8 @@ class FrogMPEGGui:
                     Text(folder.mod_time.strftime("%Y-%m-%d %H:%M"), style=style if idx == self.selected_folder_idx else COLORS["amber"]),
                 )
 
-        title = "[1] Folders (↑↓)" if self.current_section == "folders" else "[1] Folders"
-        style = COLORS["active_border"] if self.current_section == "folders" else COLORS["inactive_border"]
+        title = "[1] Folders (↑↓)" if is_active else "[1] Folders"
+        style = COLORS["active_border"] if is_active else COLORS["inactive_border"]
         return Panel(table, title=title, box=box.ROUNDED, style=style)
 
     def create_settings_panel(self) -> Panel:
@@ -174,22 +166,30 @@ class FrogMPEGGui:
         table.add_column("Setting", width=14, style=COLORS["label"])
         table.add_column("Value")
 
+        is_active_presets = self.current_section == "presets"
+        is_active_extensions = self.current_section == "extensions"
+        
         # Presets
         preset_display = "  ".join(
-            f"[{COLORS['selected']}] {name} [/]" if i == self.selected_preset_idx else f"[{COLORS['muted']}]{name}[/]"
+            f"[{COLORS['active_selected']}] {name} [/]" if (i == self.selected_preset_idx and is_active_presets) 
+            else f"[{COLORS['inactive_selected']}] {name} [/]" if (i == self.selected_preset_idx)
+            else f"[{COLORS['muted']}]{name}[/]"
             for i, name in enumerate(self.preset_names)
         )
         table.add_row("[2] Preset:", preset_display)
 
         # Extensions
         ext_display = "  ".join(
-            f"[{COLORS['selected']}] {ext} [/]" if i == self.selected_extension_idx else f"[{COLORS['muted']}]{ext}[/]"
+            f"[{COLORS['active_selected']}] {ext} [/]" if (i == self.selected_extension_idx and is_active_extensions)
+            else f"[{COLORS['inactive_selected']}] {ext} [/]" if (i == self.selected_extension_idx)
+            else f"[{COLORS['muted']}]{ext}[/]"
             for i, ext in enumerate(self.extensions)
         )
         table.add_row("[3] Extension:", ext_display)
 
-        title = "Settings (Tab + ←→)" if self.current_section in ["presets", "extensions"] else "Settings"
-        style = COLORS["active_border"] if self.current_section in ["presets", "extensions"] else COLORS["inactive_border"]
+        is_active = self.current_section in ["presets", "extensions"]
+        title = "Settings (Tab + ←→)" if is_active else "Settings"
+        style = COLORS["active_border"] if is_active else COLORS["inactive_border"]
         return Panel(table, title=title, box=box.ROUNDED, style=style)
 
     def create_format_panel(self) -> Panel:
@@ -199,11 +199,17 @@ class FrogMPEGGui:
         table.add_column("Format")
         table.add_column("Details", style=COLORS["description"])
 
+        is_active_container = self.current_section == "container"
+        is_active_codec = self.current_section == "codec"
+        is_active = is_active_container or is_active_codec
+        
         # Container selection
         container_row = []
         for i, container in enumerate(self.containers):
             if i == self.selected_container_idx:
-                container_row.append(f"[bold bright_green reverse] {container.upper()} [/]")
+                # Active section = WHITE, Inactive section = GREEN
+                style = COLORS["active_selected"] if is_active_container else COLORS["inactive_selected"]
+                container_row.append(f"[{style}] {container.upper()} [/]")
             else:
                 container_row.append(f"[{COLORS['muted']}]{container.upper()}[/]")
         
@@ -216,7 +222,6 @@ class FrogMPEGGui:
         # Show first few codecs in compact form
         for idx, codec in enumerate(codecs[:6]):
             indicator = "►" if idx == self.selected_codec_idx else " "
-            indicator_style = COLORS["bright"] if idx == self.selected_codec_idx else COLORS["muted"]
             
             # Build badges with green theme
             badges = []
@@ -230,11 +235,14 @@ class FrogMPEGGui:
             badge_str = " ".join(badges)
             
             if idx == self.selected_codec_idx:
-                name_style = "bold bright_green reverse"
-                desc_style = COLORS["lime"]
+                # Active section = WHITE, Inactive section = GREEN
+                name_style = COLORS["active_selected"] if is_active_codec else COLORS["inactive_selected"]
+                desc_style = "white" if is_active_codec else COLORS["lime"]
+                indicator_style = "bold white" if is_active_codec else COLORS["bright"]
             else:
                 name_style = COLORS["emerald"]
                 desc_style = COLORS["muted"]
+                indicator_style = COLORS["muted"]
             
             table.add_row(
                 Text(indicator, style=indicator_style),
@@ -245,8 +253,8 @@ class FrogMPEGGui:
         if len(codecs) > 6:
             table.add_row("", f"[{COLORS['muted']}]... and {len(codecs) - 6} more[/]", "")
 
-        title = "Output Format (Tab + ←→ / ↑↓)" if self.current_section in ["container", "codec"] else "Output Format"
-        style = COLORS["active_border"] if self.current_section in ["container", "codec"] else COLORS["inactive_border"]
+        title = "Output Format (Tab + ←→ / ↑↓)" if is_active else "Output Format"
+        style = COLORS["active_border"] if is_active else COLORS["inactive_border"]
         return Panel(table, title=title, box=box.ROUNDED, style=style)
 
     def create_preview_panel(self) -> Panel:
@@ -299,14 +307,15 @@ class FrogMPEGGui:
         return Panel(controls, box=box.ROUNDED, style=COLORS["inactive_border"])
 
     def render(self) -> Layout:
+        """Render the UI with dynamic sizing that adapts to terminal size."""
         layout = Layout()
         layout.split_column(
-            Layout(self.create_header(), size=3),
-            Layout(self.create_folders_panel(), size=11),
-            Layout(self.create_settings_panel(), size=5),
-            Layout(self.create_format_panel(), size=12),
-            Layout(self.create_preview_panel(), size=12),
-            Layout(self.create_footer(), size=3),
+            Layout(self.create_header(), name="header", size=3),
+            Layout(self.create_folders_panel(), name="folders", size=11),
+            Layout(self.create_settings_panel(), name="settings", size=5),
+            Layout(self.create_format_panel(), name="formats", size=12),
+            Layout(self.create_preview_panel(), name="preview", size=12),
+            Layout(self.create_footer(), name="footer", size=3),
         )
         return layout
 
@@ -344,7 +353,7 @@ class FrogMPEGGui:
             idx = self.sections.index(self.current_section)
             self.current_section = self.sections[(idx + 1) % len(self.sections)]
             return None
-        if key == "SHIFT_TAB":  # Shift+Tab to move to previous section
+        if key == "SHIFT_TAB" or key == "\x0f":  # Shift+Tab to move to previous section
             # Cycle through sections backward
             idx = self.sections.index(self.current_section)
             self.current_section = self.sections[(idx - 1) % len(self.sections)]
@@ -487,24 +496,21 @@ class FrogMPEGGui:
             console.print(f"[bold {COLORS['amber']}]No folders with images found in renders directory[/bold {COLORS['amber']}]")
             return
 
-        # Resize console window to fit the GUI
-        resize_console_window()
-
-        with console.screen() as screen:
+        # Use Rich's Live display for smoother updates
+        from rich.live import Live
+        
+        with Live(self.render(), console=console, screen=True, refresh_per_second=30) as live:
             while True:
-                # Update screen content (Rich handles double buffering automatically)
-                screen.update(self.render())
-                
                 if msvcrt:
                     key = msvcrt.getch()
                     # Handle special keys (arrows, function keys, etc.)
                     if key in (b"\x00", b"\xe0"):
-                        key = msvcrt.getch()
-                    # Shift+Tab sends "\x00\x0f"
-                    elif key == b"\x00":
                         next_key = msvcrt.getch()
-                        if next_key == b"\x0f":  # Shift+Tab
+                        # Check if it's Shift+Tab
+                        if key == b"\x00" and next_key == b"\x0f":
                             key = b"SHIFT_TAB"
+                        else:
+                            key = next_key
                     key = key.decode("utf-8", errors="ignore")
                 else:  # pragma: no cover
                     key = sys.stdin.read(1)
@@ -512,6 +518,9 @@ class FrogMPEGGui:
                 result = self.handle_key(key)
                 if result == "quit":
                     break
+                
+                # Update the display after handling the key
+                live.update(self.render())
 
 
 def run_gui() -> None:
