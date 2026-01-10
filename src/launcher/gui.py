@@ -177,8 +177,12 @@ class LauncherGui:
         # Clear screen and position at top
         console.clear()
         
+        # Force initial render before starting Live context
+        import time
+        time.sleep(0.1)
+        
         # Use much lower refresh rate - only update on key press
-        with Live(self.render(), console=console, screen=True, refresh_per_second=4) as live:
+        with Live(self.render(), console=console, screen=True, refresh_per_second=4, auto_refresh=True) as live:
             while True:
                 if msvcrt:
                     key = msvcrt.getch()
