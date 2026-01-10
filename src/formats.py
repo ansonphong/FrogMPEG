@@ -329,3 +329,71 @@ def get_gpu_codecs() -> List[CodecProfile]:
 def get_alpha_codecs() -> List[CodecProfile]:
     """Get all codecs that support alpha channel."""
     return [codec for codec in ALL_CODECS if codec.supports_alpha]
+
+
+# =============================================================================
+# IMAGE OUTPUT FORMATS (for video2img)
+# =============================================================================
+
+@dataclass(frozen=True)
+class ImageOutputFormat:
+    """Defines an image output format for frame extraction."""
+    key: str
+    display_name: str
+    extension: str
+    description: str
+    supports_alpha: bool = False
+    supports_16bit: bool = False
+    default_quality: int = 95  # For JPEG
+    
+    # Size estimation multiplier (relative to raw pixels)
+    compression_ratio: float = 0.3
+
+
+IMAGE_OUTPUT_FORMATS: List[ImageOutputFormat] = [
+    ImageOutputFormat(
+        key="png",
+        display_name="PNG",
+        extension="png",
+        description="Lossless compression, supports alpha",
+        supports_alpha=True,
+        supports_16bit=True,
+        compression_ratio=0.5,
+    ),
+    ImageOutputFormat(
+        key="jpeg",
+        display_name="JPEG",
+        extension="jpg",
+        description="Lossy compression, smallest files",
+        supports_alpha=False,
+        supports_16bit=False,
+        compression_ratio=0.1,
+    ),
+    ImageOutputFormat(
+        key="tiff",
+        display_name="TIFF",
+        extension="tiff",
+        description="Lossless, professional workflows",
+        supports_alpha=True,
+        supports_16bit=True,
+        compression_ratio=0.8,
+    ),
+    ImageOutputFormat(
+        key="exr",
+        display_name="OpenEXR",
+        extension="exr",
+        description="HDR, VFX workflows, 16/32-bit float",
+        supports_alpha=True,
+        supports_16bit=True,
+        compression_ratio=1.5,
+    ),
+]
+
+IMAGE_FORMATS_BY_KEY: Dict[str, ImageOutputFormat] = {
+    fmt.key: fmt for fmt in IMAGE_OUTPUT_FORMATS
+}
+
+
+def get_image_format(key: str) -> Optional[ImageOutputFormat]:
+    """Get image output format by key."""
+    return IMAGE_FORMATS_BY_KEY.get(key)

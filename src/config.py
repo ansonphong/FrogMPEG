@@ -90,6 +90,15 @@ class UISettings:
 
 
 @dataclass(frozen=True)
+class ExtractionDefaults:
+    """Default settings for video-to-image extraction."""
+    output_format: str = "png"
+    jpeg_quality: int = 95
+    png_compression: int = 6
+    name_pattern: str = "{video_name}_%05d"
+
+
+@dataclass(frozen=True)
 class Config:
     project_name: str
     renders_folder: Path
@@ -100,6 +109,7 @@ class Config:
     presets: Dict[str, Preset]
     encoding: EncodingSettings
     ui: UISettings
+    extraction: ExtractionDefaults  # NEW: Extraction defaults
 
     def get_preset(self, name: Optional[str]) -> Preset:
         if name:
@@ -260,6 +270,15 @@ def load_config() -> Config:
         show_file_count=bool(ui_data.get("show_file_count", True)),
         auto_select_latest=bool(ui_data.get("auto_select_latest", True))
     )
+    
+    # NEW: Extraction defaults (optional)
+    extraction_data = raw.get("extraction", {})
+    extraction = ExtractionDefaults(
+        output_format=extraction_data.get("output_format", "png"),
+        jpeg_quality=int(extraction_data.get("jpeg_quality", 95)),
+        png_compression=int(extraction_data.get("png_compression", 6)),
+        name_pattern=extraction_data.get("name_pattern", "{video_name}_%05d")
+    )
 
     if auto_create_output and not output_folder.exists():
         output_folder.mkdir(parents=True, exist_ok=True)
@@ -273,6 +292,7 @@ def load_config() -> Config:
         defaults=defaults,
         presets=presets,
         encoding=encoding,
-        ui=ui
+        ui=ui,
+        extraction=extraction,  # NEW
     )
 

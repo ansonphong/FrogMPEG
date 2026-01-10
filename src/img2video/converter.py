@@ -13,8 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
-from .config import Config, OutputCodec, Preset
-from .formats import CodecProfile
+from ..config import Config, OutputCodec, Preset
+from ..formats import CodecProfile
 
 
 class ConversionError(RuntimeError):

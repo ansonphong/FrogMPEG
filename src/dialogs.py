@@ -78,3 +78,47 @@ def browse_for_sequence_folder(renders_folder: Optional[Path] = None) -> Optiona
         title="Select Image Sequence Folder",
         initial_dir=renders_folder
     )
+
+
+def browse_for_video_file(initial_dir: Optional[Path] = None) -> Optional[Path]:
+    """
+    Open native file dialog to select a video file.
+    
+    Args:
+        initial_dir: Initial directory to open (optional)
+    
+    Returns:
+        Selected video Path, or None if cancelled.
+    """
+    # Create hidden root window
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    
+    # Determine initial directory
+    if initial_dir and initial_dir.exists():
+        start_dir = str(initial_dir)
+    else:
+        start_dir = str(Path.home())
+    
+    filetypes = [
+        ("Video files", "*.mp4 *.mov *.mkv *.avi *.webm"),
+        ("MP4 files", "*.mp4"),
+        ("MOV files", "*.mov"),
+        ("MKV files", "*.mkv"),
+        ("AVI files", "*.avi"),
+        ("All files", "*.*"),
+    ]
+    
+    selected = filedialog.askopenfilename(
+        title="Select Video File",
+        initialdir=start_dir,
+        filetypes=filetypes,
+    )
+    
+    # Clean up
+    root.destroy()
+    
+    if selected:
+        return Path(selected)
+    return None

@@ -23,8 +23,9 @@ from .config import (
     ensure_config_exists,
     load_config,
 )
-from .converter import ConversionRequest, ConversionError, convert_folder
-from .dialogs import browse_for_sequence_folder
+from .img2video.converter import ConversionRequest, ConversionError, convert_folder
+from .video2img.converter import ExtractionRequest, ExtractionError, extract_frames
+from .dialogs import browse_for_sequence_folder, browse_for_video_file
 from .formats import (
     ALL_CODECS,
     CODECS_BY_CONTAINER,
@@ -46,10 +47,21 @@ def main(
         raise typer.Exit()
 
 
-@app.command(help="Launch the btop-inspired GUI.")
+@app.command(help="Launch the launcher - choose between image-to-video or video-to-image.")
 def gui() -> None:
-    from .gui import run_gui
+    from .launcher.gui import run_launcher
+    run_launcher()
 
+
+@app.command(help="Launch image-to-video GUI directly.")
+def img2video() -> None:
+    from .img2video.gui import run_gui
+    run_gui()
+
+
+@app.command(help="Launch video-to-image GUI directly.")
+def video2img() -> None:
+    from .video2img.gui import run_gui
     run_gui()
 
 
@@ -340,6 +352,41 @@ def validate() -> None:
     if ok:
         typer.secho("Configuration validated successfully!", fg=typer.colors.GREEN, bold=True)
     else:
+        raise typer.Exit(code=1)
+
+
+@app.command(help="Extract frames from a video file.")
+def extract(
+    video: Path = typer.Argument(..., help="Path to video file"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Output folder"),
+    format: str = typer.Option("png", "--format", "-f", help="Output format: png, jpeg, tiff, exr"),
+    fps: Optional[float] = typer.Option(None, "--fps", help="Extract at specific frame rate (e.g., 24, 30)"),
+    start: Optional[float] = typer.Option(None, "--start", "-s", help="Start time in seconds"),
+    end: Optional[float] = typer.Option(None, "--end", "-e", help="End time in seconds"),
+    quality: int = typer.Option(95, "--quality", "-q", help="JPEG quality (1-100)"),
+) -> None:
+    """Extract frames from video (CLI mode)."""
+    config = load_config()
+    
+    # Default output folder
+    if output is None:
+        output = config.output_folder / f"{video.stem}_frames"
+    
+    request = ExtractionRequest(
+        video_path=video,
+        output_folder=output,
+        output_format=format,
+        name_pattern=f"{video.stem}_%05d",
+        frame_rate=fps,
+        start_time=start,
+        end_time=end,
+        jpeg_quality=quality,
+    )
+    
+    try:
+        extract_frames(config, request)
+    except (ExtractionError, ConfigError) as exc:
+        typer.secho(f"Error: {exc}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
 
