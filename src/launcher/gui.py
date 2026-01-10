@@ -197,8 +197,8 @@ class LauncherGui:
                 if result:
                     return result
                 
-                # Update layout without forcing immediate refresh
-                live.update(self.render())
+                # Update layout and force refresh (flicker in PowerShell is terminal limitation)
+                live.update(self.render(), refresh=True)
 
 
 def run_launcher() -> None:
