@@ -180,8 +180,9 @@ class LauncherGui:
         import time
         time.sleep(0.1)
         
-        # Use ZERO refresh rate - only update on explicit key press
-        with Live(self.render(), console=console, screen=True, refresh_per_second=0) as live:
+        # Use very low refresh rate - Rich requires > 0
+        # We only call live.update() on key press anyway
+        with Live(self.render(), console=console, screen=True, refresh_per_second=0.1) as live:
             while True:
                 if msvcrt:
                     key = msvcrt.getch()
