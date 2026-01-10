@@ -20,7 +20,7 @@ if not exist "venv\" (
 )
 
 echo Launching FrogMPEG GUI...
-venv\Scripts\python.exe -m frogmpeg gui
+venv\Scripts\python.exe -m src gui
 goto :eof
 
 :error

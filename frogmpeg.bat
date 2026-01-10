@@ -19,7 +19,7 @@ if not exist "venv\" (
     echo.
 )
 
-venv\Scripts\python.exe -m frogmpeg %*
+venv\Scripts\python.exe -m src %*
 goto :eof
 
 :error
