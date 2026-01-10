@@ -48,9 +48,6 @@ from .converter import (
     probe_video,
 )
 
-# Fix encoding on import
-fix_windows_encoding()
-
 console = Console()
 
 
@@ -399,6 +396,7 @@ class Video2ImgGui:
     
     def run(self) -> str:
         """Main GUI loop. Returns 'quit' or 'launcher'."""
+        fix_windows_encoding()
         resize_console_window()
         
         with Live(self.render(), console=console, screen=True, refresh_per_second=30) as live:

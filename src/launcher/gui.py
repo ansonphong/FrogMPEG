@@ -28,9 +28,6 @@ from ..theme import (
     resize_console_window,
 )
 
-# Fix encoding on import
-fix_windows_encoding()
-
 console = Console()
 
 
@@ -170,6 +167,7 @@ class LauncherGui:
     
     def run(self) -> str:
         """Main loop. Returns selected mode key or 'quit'."""
+        fix_windows_encoding()
         resize_console_window()
         
         with Live(self.render(), console=console, screen=True, refresh_per_second=30) as live:

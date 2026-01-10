@@ -45,9 +45,6 @@ from ..formats import (
 )
 from .converter import ConversionRequest, convert_folder
 
-# Fix encoding on import
-fix_windows_encoding()
-
 console = Console()
 
 
@@ -464,6 +461,7 @@ class Img2VideoGui:
             console.print(f"[{COLORS['warning']}]No folders with images found in renders directory[/]")
             return "quit"
 
+        fix_windows_encoding()
         resize_console_window()
         
         with Live(self.render(), console=console, screen=True, refresh_per_second=30) as live:

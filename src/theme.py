@@ -179,6 +179,8 @@ def fix_windows_encoding() -> None:
     """Fix Windows console encoding for emoji/unicode support."""
     if sys.platform == "win32":
         import codecs
-        sys.stdout = codecs.getwriter("utf-8")(sys.stdout.buffer, errors="replace")
-        sys.stderr = codecs.getwriter("utf-8")(sys.stderr.buffer, errors="replace")
+        # Only fix if we're in a real terminal, not already wrapped
+        if hasattr(sys.stdout, 'buffer'):
+            sys.stdout = codecs.getwriter("utf-8")(sys.stdout.buffer, errors="replace")
+            sys.stderr = codecs.getwriter("utf-8")(sys.stderr.buffer, errors="replace")
         os.environ["PYTHONIOENCODING"] = "utf-8"
