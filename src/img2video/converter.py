@@ -30,6 +30,8 @@ class ConversionRequest:
     preset_name: str | None
     extension: str | None = None
     output_codec: str | None = None  # Override output codec
+    source_folder: Optional[Path] = None  # If set, use this instead of config.renders_folder
+    output_folder: Optional[Path] = None  # If set, output here instead of config.output_folder
 
 
 def extract_sequence_numbers(filename: str) -> Tuple[int, ...]:
@@ -237,19 +239,23 @@ def build_output_path(
     folder_name: str,
     preset: Preset,
     output_codec: OutputCodec,
+    output_folder: Optional[Path] = None,
 ) -> Path:
     """Generate timestamped output path and avoid overwriting."""
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     codec_name = output_codec.codec_profile.key
     base_name = f"{folder_name}_{timestamp}_{preset.resolution}_{preset.fps}fps_{codec_name}"
+
+    # Use custom output folder if provided, otherwise use config.output_folder
+    target_folder = output_folder if output_folder else config.output_folder
     
     # Use correct extension from codec profile
     extension = output_codec.extension
-    output_path = config.output_folder / f"{base_name}.{extension}"
+    output_path = target_folder / f"{base_name}.{extension}"
 
     counter = 1
     while output_path.exists():
-        output_path = config.output_folder / f"{base_name}_{counter}.{extension}"
+        output_path = target_folder / f"{base_name}_{counter}.{extension}"
         counter += 1
 
     return output_path
@@ -279,9 +285,12 @@ def convert_folder(config: Config, request: ConversionRequest) -> Path:
         # Use default codec
         output_codec = config.get_output_codec()
 
-    folder_path = config.renders_folder / request.folder_name
+    # Use custom source folder if provided, otherwise use config.renders_folder
+    base_folder = request.source_folder if request.source_folder else config.renders_folder
+    folder_path = base_folder if request.source_folder else base_folder / request.folder_name
+    
     if not folder_path.exists():
-        raise ConversionError(f"Folder '{request.folder_name}' not found inside renders folder.")
+        raise ConversionError(f"Folder '{request.folder_name}' not found.")
 
     images = list_images(folder_path, extension)
     file_list, frame_count = create_file_list(images)
@@ -291,7 +300,7 @@ def convert_folder(config: Config, request: ConversionRequest) -> Path:
     print(f"Using preset: {preset.name} ({preset.resolution} @ {preset.fps}fps, {preset.bitrate})")
     print(f"Output codec: {codec_profile.display_name} ({codec_profile.container.upper()})")
 
-    output_path = build_output_path(config, request.folder_name, preset, output_codec)
+    output_path = build_output_path(config, request.folder_name, preset, output_codec, request.output_folder)
     
     # Determine if we should try GPU encoding
     use_gpu = config.encoding.use_gpu and codec_profile.supports_gpu

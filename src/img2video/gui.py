@@ -439,11 +439,17 @@ class Img2VideoGui:
             )
         )
 
+        # Output video to the parent folder of the source images
+        source_folder_path = folder.path
+        output_folder_path = source_folder_path.parent
+
         request = ConversionRequest(
             folder_name=folder.name,
             preset_name=preset.name if preset.name != "defaults" else None,
             extension=extension,
             output_codec=codec.key,
+            source_folder=source_folder_path,
+            output_folder=output_folder_path,
         )
         try:
             convert_folder(self.config, request)

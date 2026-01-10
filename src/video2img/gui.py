@@ -245,7 +245,7 @@ class Video2ImgGui:
             
             request = ExtractionRequest(
                 video_path=self.video_info.path,
-                output_folder=self.config.output_folder / f"{self.video_info.path.stem}_frames",
+                output_folder=self.video_info.path.parent / f"{self.video_info.path.stem}_frames",
                 output_format=output_format.key,
                 name_pattern=f"{self.video_info.path.stem}_%05d",
                 frame_rate=extraction_mode.fps,
@@ -264,6 +264,9 @@ class Video2ImgGui:
             table.add_row("Est. Size:", size_str)
             
             table.add_row("", "")
+            # Output relative to source video
+            video_parent = self.video_info.path.parent
+            output_folder = video_parent / f"{self.video_info.path.stem}_frames"
             table.add_row("Output Dir:", f"{self.video_info.path.stem}_frames")
         else:
             table.add_row("", f"[{COLORS['muted']}]Select a video to see preview[/]")
@@ -397,7 +400,10 @@ class Video2ImgGui:
         
         output_format = self.output_formats[self.selected_format_idx]
         extraction_mode = self.extraction_modes[self.selected_mode_idx]
-        output_folder = self.config.output_folder / f"{self.video_info.path.stem}_frames"
+        
+        # Output next to the source video file
+        video_parent = self.video_info.path.parent
+        output_folder = video_parent / f"{self.video_info.path.stem}_frames"
         
         console.clear()
         console.print(
