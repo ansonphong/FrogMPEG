@@ -136,8 +136,8 @@ class LauncherGui:
         """Render the full launcher UI."""
         layout = Layout()
         layout.split_column(
-            Layout(self.create_header(), size=12),
-            Layout(self.create_modes_layout(), size=14),
+            Layout(self.create_header(), size=10),
+            Layout(self.create_modes_layout(), size=12),
             Layout(self.create_footer(), size=3),
         )
         return layout
@@ -170,7 +170,11 @@ class LauncherGui:
         fix_windows_encoding()
         resize_console_window()
         
-        with Live(self.render(), console=console, screen=True, refresh_per_second=30) as live:
+        # Clear screen and position at top
+        console.clear()
+        
+        # Use much lower refresh rate - only update on key press
+        with Live(self.render(), console=console, screen=True, refresh_per_second=4) as live:
             while True:
                 if msvcrt:
                     key = msvcrt.getch()
@@ -185,7 +189,8 @@ class LauncherGui:
                 if result:
                     return result
                 
-                live.update(self.render())
+                # Only update when key is pressed
+                live.update(self.render(), refresh=True)
 
 
 def run_launcher() -> None:
@@ -194,18 +199,23 @@ def run_launcher() -> None:
     Handles the full application lifecycle with mode switching.
     """
     while True:
+        # Clear before showing launcher
+        console.clear()
+        
         launcher = LauncherGui()
         mode = launcher.run()
         
         if mode == "quit":
             break
         elif mode == "img2video":
+            console.clear()
             from ..img2video.gui import run_gui
             result = run_gui()
             if result == "quit":
                 break
             # result == "launcher" continues loop
         elif mode == "video2img":
+            console.clear()
             from ..video2img.gui import run_gui
             result = run_gui()
             if result == "quit":

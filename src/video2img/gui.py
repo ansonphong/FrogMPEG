@@ -398,8 +398,10 @@ class Video2ImgGui:
         """Main GUI loop. Returns 'quit' or 'launcher'."""
         fix_windows_encoding()
         resize_console_window()
+        console.clear()
         
-        with Live(self.render(), console=console, screen=True, refresh_per_second=30) as live:
+        # Use lower refresh rate - only update on key press
+        with Live(self.render(), console=console, screen=True, refresh_per_second=4) as live:
             while True:
                 if msvcrt:
                     key = msvcrt.getch()
@@ -418,7 +420,8 @@ class Video2ImgGui:
                 if result in ("quit", "launcher"):
                     return result
                 
-                live.update(self.render())
+                # Only update when key is pressed
+                live.update(self.render(), refresh=True)
 
 
 def run_gui() -> str:
