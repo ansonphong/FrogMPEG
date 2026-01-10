@@ -175,8 +175,8 @@ class LauncherGui:
         import time
         time.sleep(0.1)
         
-        # Use much lower refresh rate - only update on key press
-        with Live(self.render(), console=console, screen=True, refresh_per_second=4, auto_refresh=True) as live:
+        # Use manual refresh only - no auto refresh to prevent flickering
+        with Live(self.render(), console=console, screen=True, refresh_per_second=1) as live:
             while True:
                 if msvcrt:
                     key = msvcrt.getch()
