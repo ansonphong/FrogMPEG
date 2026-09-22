@@ -73,8 +73,16 @@ EXTRACTION_MODES: List[ExtractionMode] = [
 class Video2ImgGui:
     """GUI for extracting frames from video."""
     
-    def __init__(self) -> None:
+    def __init__(self, path: Optional[Path] = None) -> None:
         self.config: Config = load_config()
+        self.video_root = self.config.output_folder
+        self.open_video: Optional[Path] = None
+        if path is not None:
+            if path.is_file():
+                self.open_video = path.resolve()
+                self.video_root = self.open_video.parent
+            else:
+                self.video_root = path.resolve()
         
         # Video state
         self.selected_video: Optional[Path] = None
@@ -103,14 +111,16 @@ class Video2ImgGui:
         self.recent_videos: List[Path] = []
         self.selected_recent_idx = 0
         self.scan_recent_videos()
+        if self.open_video:
+            self._select_open_video()
     
     def scan_recent_videos(self) -> None:
-        """Scan output folder for recently created videos."""
+        """Scan the video folder for recently created videos."""
         video_extensions = ["mp4", "mov", "mkv", "avi", "webm"]
         videos: List[tuple[Path, datetime]] = []
         
         for ext in video_extensions:
-            for video in self.config.output_folder.glob(f"*.{ext}"):
+            for video in self.video_root.glob(f"*.{ext}"):
                 try:
                     mod_time = datetime.fromtimestamp(video.stat().st_mtime)
                     videos.append((video, mod_time))
@@ -118,7 +128,26 @@ class Video2ImgGui:
                     pass
         
         videos.sort(key=lambda x: x[1], reverse=True)
-        self.recent_videos = [v[0] for v in videos[:10]]
+        found = []
+        for video, _mod_time in videos:
+            resolved = video.resolve()
+            if resolved not in found:
+                found.append(resolved)
+        self.recent_videos = found[:10]
+        if self.open_video and self.open_video not in self.recent_videos:
+            self.recent_videos.insert(0, self.open_video)
+            self.recent_videos = self.recent_videos[:10]
+
+    def _select_open_video(self) -> None:
+        if not self.open_video:
+            return
+        if self.open_video in self.recent_videos:
+            self.selected_recent_idx = self.recent_videos.index(self.open_video)
+        try:
+            self.video_info = probe_video(self.config, self.open_video)
+            self.selected_video = self.open_video
+        except Exception:
+            self.video_info = None
     
     # =========================================================================
     # UI Panel Builders (using shared theme)
@@ -173,7 +202,11 @@ class Video2ImgGui:
         else:
             table.add_row("", f"[{COLORS['muted']}]No videos found. Press [B] to browse.[/]", "", "")
         
-        title = "[1] Video (↑↓, Enter=Select, B=Browse)" if is_active else "[1] Video"
+        if self.video_root != self.config.output_folder:
+            label = f"[1] {self.video_root.name}"
+        else:
+            label = "[1] Video"
+        title = f"{label} (↑↓, Enter=Select, B=Browse)" if is_active else label
         return Panel(table, title=title, box=box.ROUNDED, style=get_panel_style(is_active))
     
     def create_format_panel(self) -> Panel:
@@ -318,6 +351,9 @@ class Video2ImgGui:
         if key.lower() == "s":
             self.start_extraction()
             return None
+        if key == "\r" and self.current_section == "video" and self.recent_videos and not self.video_info:
+            self.load_video(self.recent_videos[self.selected_recent_idx])
+            return None
         if key == "\t" or key == "\r":
             idx = self.sections.index(self.current_section)
             self.current_section = self.sections[(idx + 1) % len(self.sections)]
@@ -333,8 +369,6 @@ class Video2ImgGui:
                 self.selected_recent_idx = max(0, self.selected_recent_idx - 1)
             elif key == "P":  # down
                 self.selected_recent_idx = min(len(self.recent_videos) - 1, self.selected_recent_idx + 1)
-            elif key == "\r" and self.recent_videos:  # enter - select from list
-                self.load_video(self.recent_videos[self.selected_recent_idx])
         
         elif self.current_section == "format":
             if key == "K":  # left
@@ -471,6 +505,10 @@ class Video2ImgGui:
                 live.update(self.render(), refresh=True)
 
 
-def run_gui() -> str:
-    """Run video-to-image GUI. Returns exit action."""
-    return Video2ImgGui().run()
+def run_gui(path: Optional[Path] = None) -> str:
+    """Run video-to-image GUI. Returns exit action.
+
+    ``path`` is a video file to open, or a folder whose videos replace the
+    ``output_folder`` scan for this session.
+    """
+    return Video2ImgGui(path).run()

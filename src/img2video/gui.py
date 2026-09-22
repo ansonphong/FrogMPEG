@@ -6,7 +6,7 @@ Uses shared theme for consistent colors and shortcuts.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
@@ -43,7 +43,7 @@ from ..formats import (
     get_available_containers,
     get_codecs_for_container,
 )
-from .converter import ConversionRequest, convert_folder
+from .converter import ConversionRequest, convert_folder, list_images
 
 console = Console()
 
@@ -54,15 +54,17 @@ class FolderInfo:
     path: Path
     file_count: int
     mod_time: datetime
+    sample_names: List[str] = field(default_factory=list)
 
 
 class Img2VideoGui:
     """GUI for converting image sequences to video."""
     
-    def __init__(self) -> None:
+    def __init__(self, folder: Optional[Path] = None) -> None:
         self.config: Config = load_config()
         self.folders: List[FolderInfo] = []
         self.extensions = ["jpeg", "jpg", "png"]
+        self.scan_root = folder.resolve() if folder else self.config.renders_folder
         
         # Navigation state
         self.selected_folder_idx = 0
@@ -81,25 +83,63 @@ class Img2VideoGui:
         
         self.scan_folders()
 
+    def _image_count(self, folder: Path) -> int:
+        return sum(len(list(folder.glob(f"*.{ext}"))) for ext in self.extensions)
+
+    def _sample_names(self, folder: Path) -> List[str]:
+        best_ext = max(self.extensions, key=lambda ext: len(list(folder.glob(f"*.{ext}"))))
+        files = list_images(folder, best_ext)
+        if not files:
+            return []
+        shown = [path.name for path in files[:5]]
+        if len(files) > 5:
+            shown.append(f"… and {len(files) - 5} more")
+        return shown
+
+    def _folder_info(self, folder: Path) -> Optional[FolderInfo]:
+        file_count = self._image_count(folder)
+        if file_count == 0:
+            return None
+        mod_time = datetime.fromtimestamp(folder.stat().st_mtime)
+        return FolderInfo(folder.name, folder, file_count, mod_time, self._sample_names(folder))
+
+    def _prefer_extension(self, folder: Path) -> None:
+        counts = {ext: len(list(folder.glob(f"*.{ext}"))) for ext in self.extensions}
+        best = max(self.extensions, key=lambda ext: counts[ext])
+        if counts[best] > 0:
+            self.selected_extension_idx = self.extensions.index(best)
+
     def scan_folders(self) -> None:
         results: List[FolderInfo] = []
-        for entry in self.config.renders_folder.iterdir():
-            if not entry.is_dir():
-                continue
-            file_count = sum(
-                len(list(entry.glob(f"*.{ext}"))) for ext in self.extensions
-            )
-            if file_count == 0:
-                continue
-            mod_time = datetime.fromtimestamp(entry.stat().st_mtime)
-            results.append(FolderInfo(entry.name, entry, file_count, mod_time))
+        root = self.scan_root
+        opened_explicitly = root != self.config.renders_folder
+        if root.is_dir():
+            # A sequence folder contains the frames directly. A renders parent
+            # contains one folder per sequence. Include the path itself only
+            # when the user pointed the GUI at it.
+            if opened_explicitly:
+                own = self._folder_info(root)
+                if own:
+                    results.append(own)
+            try:
+                children = [entry for entry in root.iterdir() if entry.is_dir()]
+            except OSError:
+                children = []
+            for entry in children:
+                info = self._folder_info(entry)
+                if info:
+                    results.append(info)
 
         results.sort(key=lambda f: f.mod_time, reverse=True)
         self.folders = results
-        if self.config.ui.auto_select_latest and results:
+        if opened_explicitly and any(folder.path == root for folder in results):
+            self.selected_folder_idx = next(i for i, folder in enumerate(results) if folder.path == root)
+        elif self.config.ui.auto_select_latest and results:
             self.selected_folder_idx = 0
         elif self.folders:
             self.selected_folder_idx = min(self.selected_folder_idx, len(self.folders) - 1)
+        if opened_explicitly and self.folders:
+            self._prefer_extension(self.folders[self.selected_folder_idx].path)
 
     # UI helpers ---------------------------------------------------------
     def create_header_panel(self) -> Panel:
@@ -116,9 +156,11 @@ class Img2VideoGui:
         is_active = self.current_section == "folders"
         
         if not self.folders:
-            table.add_row("", "[dim]No folders found[/]", "", "")
+            table.add_row("", "[dim]No image sequences in this folder[/]", "", "")
         else:
-            for idx, folder in enumerate(self.folders[:8]):
+            show_files = len(self.folders) == 1 and bool(self.folders[0].sample_names)
+            visible = self.folders if show_files else self.folders[:8]
+            for idx, folder in enumerate(visible):
                 is_selected = idx == self.selected_folder_idx
                 indicator, ind_style = style_indicator(is_selected, is_active)
                 
@@ -133,8 +175,15 @@ class Img2VideoGui:
                     Text(str(folder.file_count), style=style if is_selected else COLORS["gold"]),
                     Text(folder.mod_time.strftime("%Y-%m-%d %H:%M"), style=style if is_selected else COLORS["amber"]),
                 )
+                if show_files:
+                    for name in folder.sample_names:
+                        table.add_row("", Text(f"  {name}", style=COLORS["muted"]), "", "")
 
-        title = "[1] Folders (↑↓)" if is_active else "[1] Folders"
+        if self.scan_root != self.config.renders_folder:
+            label = f"[1] {self.scan_root.name}"
+        else:
+            label = "[1] Folders"
+        title = f"{label} (↑↓)" if is_active else label
         return Panel(table, title=title, box=box.ROUNDED, style=get_panel_style(is_active))
 
     def create_settings_panel(self) -> Panel:
@@ -234,7 +283,7 @@ class Img2VideoGui:
         duration = 0.0
         if folder and folder.file_count > 0:
             duration = folder.file_count / preset.fps
-            table.add_row("Folder:", folder.name)
+            table.add_row("Folder:", str(folder.path))
             minutes = int(duration // 60)
             seconds = int(duration % 60)
             table.add_row("Frames:", str(folder.file_count))
@@ -390,7 +439,7 @@ class Img2VideoGui:
             )
         )
         
-        selected_folder = browse_for_sequence_folder(self.config.renders_folder)
+        selected_folder = browse_for_sequence_folder(self.scan_root)
         
         if selected_folder and selected_folder.exists():
             file_count = sum(
@@ -464,7 +513,9 @@ class Img2VideoGui:
     def run(self) -> str:
         """Main GUI loop. Returns 'quit' or 'launcher'."""
         if not self.folders:
-            console.print(f"[{COLORS['warning']}]No folders with images found in renders directory[/]")
+            console.print(
+                f"[{COLORS['warning']}]No folders with images found in {self.scan_root}[/]"
+            )
             return "quit"
 
         fix_windows_encoding()
@@ -494,6 +545,11 @@ class Img2VideoGui:
                 live.update(self.render(), refresh=True)
 
 
-def run_gui() -> str:
-    """Run image-to-video GUI. Returns exit action."""
-    return Img2VideoGui().run()
+def run_gui(folder: Optional[Path] = None) -> str:
+    """Run image-to-video GUI. Returns exit action.
+
+    ``folder`` replaces ``renders_folder`` for this session. A sequence folder
+    (frames directly inside) is shown with its files. A parent folder lists
+    the sequence folders inside it.
+    """
+    return Img2VideoGui(folder).run()

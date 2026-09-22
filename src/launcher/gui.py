@@ -6,6 +6,7 @@ Uses shared theme for consistent colors and shortcuts.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List, Optional
 
 from rich import box
@@ -206,10 +207,13 @@ class LauncherGui:
                     live.update(self.render(), refresh=True)
 
 
-def run_launcher() -> None:
+def run_launcher(folder: Optional[Path] = None) -> None:
     """
     Run the launcher and dispatch to selected mode.
     Handles the full application lifecycle with mode switching.
+
+    ``folder`` is passed into the mode the user picks. A directory scopes
+    that GUI to the folder. A video file is only useful for video-to-image.
     """
     while True:
         # Clear before showing launcher
@@ -223,14 +227,15 @@ def run_launcher() -> None:
         elif mode == "img2video":
             console.clear()
             from ..img2video.gui import run_gui
-            result = run_gui()
+            image_root = folder if folder and folder.is_dir() else None
+            result = run_gui(image_root)
             if result == "quit":
                 break
             # result == "launcher" continues loop
         elif mode == "video2img":
             console.clear()
             from ..video2img.gui import run_gui
-            result = run_gui()
+            result = run_gui(folder)
             if result == "quit":
                 break
             # result == "launcher" continues loop

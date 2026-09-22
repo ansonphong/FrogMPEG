@@ -38,7 +38,7 @@ from .formats import (
 app = typer.Typer(help="FrogMPEG - Multi-codec video converter with ProRes support.")
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
     version: bool = typer.Option(False, "--version", help="Show version and exit."),
@@ -46,24 +46,63 @@ def main(
     if version:
         typer.echo(f"FrogMPEG {__version__}")
         raise typer.Exit()
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit()
+
+
+def _existing_path(path: Optional[Path]) -> Optional[Path]:
+    """Resolve a GUI path argument, or exit if it does not exist."""
+    if path is None:
+        return None
+    resolved = path.expanduser().resolve()
+    if not resolved.exists():
+        typer.secho(f"Path not found: {resolved}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    return resolved
 
 
 @app.command(help="Launch the launcher - choose between image-to-video or video-to-image.")
-def gui() -> None:
+def gui(
+    folder: Optional[Path] = typer.Argument(
+        None,
+        help="Folder to open in the mode you pick. A video file opens video-to-image on that file.",
+    ),
+) -> None:
+    folder = _existing_path(folder)
+    if folder is not None and folder.is_file():
+        from .video2img.gui import run_gui
+        run_gui(folder)
+        return
     from .launcher.gui import run_launcher
-    run_launcher()
+    run_launcher(folder)
 
 
 @app.command(help="Launch image-to-video GUI directly.")
-def img2video() -> None:
+def img2video(
+    folder: Optional[Path] = typer.Argument(
+        None,
+        help="Sequence folder, or a parent of sequence folders. Defaults to renders_folder.",
+    ),
+) -> None:
+    folder = _existing_path(folder)
+    if folder is not None and not folder.is_dir():
+        typer.secho(f"Not a folder: {folder}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
     from .img2video.gui import run_gui
-    run_gui()
+    run_gui(folder)
 
 
 @app.command(help="Launch video-to-image GUI directly.")
-def video2img() -> None:
+def video2img(
+    path: Optional[Path] = typer.Argument(
+        None,
+        help="Video file to open, or a folder of videos. Defaults to output_folder.",
+    ),
+) -> None:
+    path = _existing_path(path)
     from .video2img.gui import run_gui
-    run_gui()
+    run_gui(path)
 
 
 @app.command(help="Convert an image sequence folder to video.")
