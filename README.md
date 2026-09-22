@@ -156,13 +156,13 @@ Shipped in `config.example.json`. A local `config.json` may differ. Trust `pytho
 | `fulldome-prores-hq` | 4096×4096 | 60 | 200M | `prores-422-hq-mov` |
 | `vfx-prores-4444` | 4096×4096 | 60 | 200M | `prores-4444-mov` |
 | `preview` | 1024×1024 | 30 | 25M | none |
-| `social-reel` | 1080×1920 | 60 | 16M | `h264-nvenc-mp4`, `fit: pad`, faststart |
-| `social-reel-30` | 1080×1920 | 30 | 10M | `h264-nvenc-mp4`, `fit: pad`, faststart |
-| `social-reel-fill` | 1080×1920 | 60 | 16M | `h264-nvenc-mp4`, `fit: crop`, faststart |
-| `social-feed` | 1080×1350 | 60 | 12M | `h264-nvenc-mp4`, `fit: pad`, faststart |
-| `social-square` | 1080×1080 | 60 | 10M | `h264-nvenc-mp4`, faststart |
+| `social-reel` | 1080×1920 | 60 | 24M | `h264-nvenc-mp4`, `fit: pad`, faststart |
+| `social-reel-30` | 1080×1920 | 30 | 24M | `h264-nvenc-mp4`, `fit: pad`, faststart |
+| `social-reel-fill` | 1080×1920 | 60 | 24M | `h264-nvenc-mp4`, `fit: crop`, faststart |
+| `social-feed` | 1080×1350 | 60 | 24M | `h264-nvenc-mp4`, `fit: pad`, faststart |
+| `social-square` | 1080×1080 | 60 | 24M | `h264-nvenc-mp4`, faststart |
 
-`social-reel` is the file for Instagram Reels, Stories, TikTok, and YouTube Shorts: 9:16 H.264, `yuv420p`, under the 25 Mbps ceiling those apps re-encode from. `pad` keeps a square dome master round and centered. `social-reel-fill` crops the sides so the phone frame is full. `social-feed` is the 4:5 feed portrait. `social-square` is an even scale of a square master. Social presets set `-movflags +faststart`. Dome presets do not.
+`social-reel` is the file for Instagram Reels, Stories, TikTok, and YouTube Shorts: 9:16 H.264, `yuv420p`. Every social preset targets **24 Mbps**, and the encoder also caps the peak at that rate. That is the room fine particle detail needs while staying under the 25 Mbps ceiling those apps publish. A lower rate bakes blur into sparks and grit before the platform re-encodes the upload. About 100 seconds at 24 Mbps is 300 MB, which is the usual upload-size limit, so keep a particle reel shorter than that if the app rejects the file. `pad` keeps a square dome master round and centered. `social-reel-fill` crops the sides so the phone frame is full. `social-feed` is the 4:5 feed portrait. `social-square` is an even scale of a square master. Social presets set `-movflags +faststart`. Dome presets do not, and their bitrates stay at 100M–200M.
 
 A preset is resolution, fps, bitrate, and optional `output_codec`, `fit`, and `faststart`. Add one by appending an object to `presets` in `config.json`. `output_codec` must be a key from `list-formats`. `fit` is `stretch`, `pad`, or `crop`. Bitrate is ignored for ProRes, which uses a fixed quality scale.
 
