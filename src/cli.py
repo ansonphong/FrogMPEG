@@ -284,10 +284,11 @@ def list_presets() -> None:
         if preset.output_codec:
             codec = preset.output_codec.codec_profile
             codec_info = f" [{codec.display_name}]"
+        fit_info = f", {preset.fit}" if preset.fit != "stretch" else ""
         
         typer.echo(
             f"- {preset.name}: {preset.description or 'No description'} "
-            f"({preset.resolution}, {preset.bitrate}, {preset.fps}fps){codec_info}"
+            f"({preset.resolution}, {preset.bitrate}, {preset.fps}fps{fit_info}){codec_info}"
         )
 
 

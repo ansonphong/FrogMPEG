@@ -40,6 +40,9 @@ class OutputCodec:
         return self.codec_profile.container
 
 
+FIT_MODES = ("stretch", "pad", "crop")
+
+
 @dataclass(frozen=True)
 class Preset:
     name: str
@@ -48,6 +51,8 @@ class Preset:
     fps: int
     description: str = ""
     output_codec: Optional[OutputCodec] = None  # If None, uses defaults
+    fit: str = "stretch"  # stretch | pad | crop
+    faststart: bool = False
 
     @property
     def width(self) -> int:
@@ -195,6 +200,12 @@ def _load_presets(presets_data: List[Dict[str, Any]]) -> Dict[str, Preset]:
         bitrate = _validate_required(preset, "bitrate")
         fps = int(_validate_required(preset, "fps"))
         description = preset.get("description", "")
+        fit = preset.get("fit", "stretch")
+        if fit not in FIT_MODES:
+            raise ConfigError(
+                f"Preset '{name}' has unknown fit '{fit}'. Use stretch, pad, or crop."
+            )
+        faststart = bool(preset.get("faststart", False))
         
         # Load output codec if specified
         output_codec = None
@@ -213,7 +224,9 @@ def _load_presets(presets_data: List[Dict[str, Any]]) -> Dict[str, Preset]:
             bitrate=bitrate,
             fps=fps,
             description=description,
-            output_codec=output_codec
+            output_codec=output_codec,
+            fit=fit,
+            faststart=faststart,
         )
     return presets
 

@@ -290,6 +290,10 @@ class Img2VideoGui:
             table.add_row("Duration:", f"~{minutes}:{seconds:02d} @ {preset.fps}fps")
         
         table.add_row("Resolution:", preset.resolution)
+        if preset.fit == "pad":
+            table.add_row("Fit:", "pad (whole frame, bars)")
+        elif preset.fit == "crop":
+            table.add_row("Fit:", "crop (fill the frame)")
         table.add_row("Bitrate:", preset.bitrate)
         table.add_row("", "")
         table.add_row("Output:", f"{codec.display_name}")

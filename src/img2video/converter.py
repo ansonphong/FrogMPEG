@@ -198,6 +198,28 @@ def build_codec_command(
         raise ConversionError(f"Unsupported codec: {codec_profile.codec_name}")
 
 
+def build_scale_filter(preset: Preset) -> str:
+    """Scale to the preset size.
+
+    stretch fills the frame and ignores aspect ratio (dome presets).
+    pad fits the whole frame and adds black bars.
+    crop fills the frame and cuts the overflow.
+    """
+    width = preset.width
+    height = preset.height
+    if preset.fit == "pad":
+        return (
+            f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
+            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black"
+        )
+    if preset.fit == "crop":
+        return (
+            f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"crop={width}:{height}"
+        )
+    return f"scale={width}:{height}"
+
+
 def build_ffmpeg_command(
     config: Config,
     preset: Preset,
@@ -217,7 +239,7 @@ def build_ffmpeg_command(
         "-safe", "0",
         "-r", str(fps),
         "-i", file_list,
-        "-vf", f"scale={preset.width}:{preset.height}",
+        "-vf", build_scale_filter(preset),
     ]
     
     # Add codec-specific encoding parameters
@@ -225,6 +247,8 @@ def build_ffmpeg_command(
     cmd.extend(codec_cmd)
     
     # Output settings
+    if preset.faststart:
+        cmd.extend(["-movflags", "+faststart"])
     cmd.extend([
         "-loglevel", "error",
         "-stats",

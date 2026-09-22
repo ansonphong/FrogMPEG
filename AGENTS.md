@@ -2,7 +2,7 @@
 
 Frog-themed FFmpeg wrapper for fulldome / visualization pipelines. Dual-mode: **image sequence → video** and **video → image sequence**. Terminal GUIs (Rich) plus a Typer CLI. Encoding is always FFmpeg; this repo only builds commands, probes metadata, and presents a TUI.
 
-Runtime version: `src/__version__.py` (`2.1.0`). Keep the same number in `pyproject.toml`. `python -m src --version` reads `__version__.py`.
+Runtime version: `src/__version__.py` (`2.2.0`). Keep the same number in `pyproject.toml`. `python -m src --version` reads `__version__.py`.
 
 This file is agent context. The headless runbook and full capability guide live in `README.md` (section **Headless operation**). Do not copy that guide here. `docs/USAGE.md` still shows `python -m frogmpeg --gui`, which is not a command — ignore it.
 
@@ -168,7 +168,7 @@ CLI `convert --browse` stores only `folder_name`, not `source_folder`. Folders o
 
 - **Windows-first TUI.** Arrow keys and Shift+Tab need `msvcrt`. POSIX fallbacks (`sys.stdin.read(1)` / `input()`) do not handle arrows. Do not claim Linux TUI parity unless you add a real input layer.
 - **Invoke as `src`, not only `frogmpeg`.** `pyproject.toml` maps package name `frogmpeg` → `src/`, but batch files and day-to-day use are `python -m src`. Docs still mix `python -m frogmpeg` and even `python -m frogmpeg --gui` (wrong; the command is `gui`).
-- **Always scales** to the preset resolution, even when frames already match.
+- **Always scales** to the preset resolution, even when frames already match. `fit` defaults to `stretch`. `pad` and `crop` keep aspect ratio. Preset fps changes duration; it does not drop frames.
 - **Concat + `-r` on input** is the img2video pattern. Do not switch to glob input without a reason.
 - **EXR extract** has no extra FFmpeg codec flags yet.
 - **`pyyaml` is in `requirements.txt` and unused.** Do not build YAML config on that leftover.
