@@ -99,6 +99,25 @@ python -m src convert MyShot --preset fulldome-2k --rotate 180
 
 A square frame stays square after a quarter turn, then `pad` or `crop` fits that turned picture into the preset. A 90 degree turn of a 1080×1920 picture swaps it to 1920×1080 before scaling.
 
+#### Speed
+
+`--speed` changes how fast the frames play. It is passed through to FFmpeg as `setpts`. Every still stays in the file. `extract` and the GUIs do not change speed.
+
+| `--speed` | Result | Filter |
+|---|---|---|
+| `1` | preset timing | no `setpts` |
+| `2` | half as long, twice as fast | `setpts=PTS/2` |
+| `0.5` | twice as long, half speed | `setpts=PTS/0.5` |
+
+`0` and negative values fail. There is no audio track to speed up with them.
+
+A 60 fps folder that runs 2 minutes is 7,200 frames. `--speed 2` keeps all 7,200 frames and finishes in 1 minute, so the file is about 120 fps. The preset fps is the rate before speeding up. Instagram accepts up to 60 fps, so a sped-up 60 fps reel can come out above that limit.
+
+```bash
+python -m src convert MyShot --preset social-reel --speed 2
+python -m src convert MyShot --preset fulldome-2k --speed 0.5
+```
+
 Output name:
 
 ```text

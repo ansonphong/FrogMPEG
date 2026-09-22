@@ -33,6 +33,7 @@ class ConversionRequest:
     source_folder: Optional[Path] = None  # If set, use this instead of config.renders_folder
     output_folder: Optional[Path] = None  # If set, output here instead of config.output_folder
     rotate: int = 0  # Clockwise degrees. 0, 90, -90, 180, 270.
+    speed: float = 1.0  # 2 plays twice as fast. Passed through as setpts.
 
 
 def extract_sequence_numbers(filename: str) -> Tuple[int, ...]:
@@ -241,13 +242,29 @@ def rotate_filter(degrees: int) -> Optional[str]:
     return filters[normalized]
 
 
-def build_video_filter(preset: Preset, rotate: int = 0) -> str:
-    """Rotate first, then scale into the preset frame."""
+def speed_filter(speed: float) -> Optional[str]:
+    """FFmpeg setpts filter for a playback speed, or None at 1x.
+
+    2 becomes setpts=PTS/2, which keeps every frame and halves the duration.
+    """
+    if speed <= 0:
+        raise ConversionError(f"Speed must be greater than 0. Got {speed}.")
+    if speed == 1:
+        return None
+    text = f"{speed:.6f}".rstrip("0").rstrip(".")
+    return f"setpts=PTS/{text}"
+
+
+def build_video_filter(preset: Preset, rotate: int = 0, speed: float = 1.0) -> str:
+    """Rotate, scale into the preset frame, then apply playback speed."""
     parts: List[str] = []
     rotation = rotate_filter(rotate)
     if rotation:
         parts.append(rotation)
     parts.append(build_scale_filter(preset))
+    timing = speed_filter(speed)
+    if timing:
+        parts.append(timing)
     return ",".join(parts)
 
 
@@ -259,6 +276,7 @@ def build_ffmpeg_command(
     output_path: Path,
     use_gpu: bool,
     rotate: int = 0,
+    speed: float = 1.0,
 ) -> List[str]:
     """Build complete FFmpeg command for the requested conversion."""
     fps = preset.fps
@@ -271,7 +289,7 @@ def build_ffmpeg_command(
         "-safe", "0",
         "-r", str(fps),
         "-i", file_list,
-        "-vf", build_video_filter(preset, rotate),
+        "-vf", build_video_filter(preset, rotate, speed),
     ]
     
     # Add codec-specific encoding parameters
@@ -357,6 +375,8 @@ def convert_folder(config: Config, request: ConversionRequest) -> Path:
     print(f"Output codec: {codec_profile.display_name} ({codec_profile.container.upper()})")
     if request.rotate % 360:
         print(f"Rotate: {request.rotate} degrees clockwise")
+    if request.speed != 1:
+        print(f"Speed: {request.speed}x")
 
     output_path = build_output_path(config, request.folder_name, preset, output_codec, request.output_folder)
     
@@ -364,7 +384,7 @@ def convert_folder(config: Config, request: ConversionRequest) -> Path:
     use_gpu = config.encoding.use_gpu and codec_profile.supports_gpu
     
     cmd = build_ffmpeg_command(
-        config, preset, output_codec, file_list, output_path, use_gpu, request.rotate
+        config, preset, output_codec, file_list, output_path, use_gpu, request.rotate, request.speed
     )
 
     try:
@@ -374,7 +394,7 @@ def convert_folder(config: Config, request: ConversionRequest) -> Path:
         if use_gpu:
             print(f"GPU encoding failed, retrying with CPU...")
             cmd = build_ffmpeg_command(
-                config, preset, output_codec, file_list, output_path, False, request.rotate
+                config, preset, output_codec, file_list, output_path, False, request.rotate, request.speed
             )
             run_ffmpeg(cmd)
         else:

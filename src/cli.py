@@ -127,6 +127,11 @@ def convert(
         "-r",
         help="Rotate clockwise before scaling: 0, 90, -90, 180, or 270.",
     ),
+    speed: float = typer.Option(
+        1.0,
+        "--speed",
+        help="Playback speed. 2 plays twice as fast and keeps every frame. 0.5 is half speed.",
+    ),
 ) -> None:
     config = load_config()
     
@@ -184,6 +189,7 @@ def convert(
         extension=extension,
         output_codec=output_format_key,
         rotate=rotate,
+        speed=speed,
     )
     
     try:
