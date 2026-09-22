@@ -121,6 +121,12 @@ def convert(
     browse: bool = typer.Option(
         False, "--browse", "-b", help="Open folder browser to select image sequence."
     ),
+    rotate: int = typer.Option(
+        0,
+        "--rotate",
+        "-r",
+        help="Rotate clockwise before scaling: 0, 90, -90, 180, or 270.",
+    ),
 ) -> None:
     config = load_config()
     
@@ -176,7 +182,8 @@ def convert(
         folder_name=folder_name,
         preset_name=preset,
         extension=extension,
-        output_codec=output_format_key
+        output_codec=output_format_key,
+        rotate=rotate,
     )
     
     try:

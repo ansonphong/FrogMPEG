@@ -43,7 +43,7 @@ Prefer `python -m src`. After `pip install -e .`, `frogmpeg` and `python -m frog
 | `python -m src list-formats` | Codec registry dump |
 | `python -m src list-containers` | `mp4` and `mov` |
 | `python -m src list-codecs --container mp4` | Codecs for one container |
-| `python -m src convert FOLDER --preset NAME --format KEY --extension EXT` | Headless image sequence → video |
+| `python -m src convert FOLDER --preset NAME --format KEY --extension EXT --rotate 90` | Headless image sequence → video. `--rotate` is 0, 90, -90, 180, or 270 |
 | `python -m src extract VIDEO --format FMT -o DIR` | Headless video → frames |
 | `python -m src init` | Copy `config.example.json` → `config.json` (`--force` overwrites) |
 | `python -m src gui` | Launcher TUI. Not headless. `gui FOLDER` scopes the chosen mode to that folder |

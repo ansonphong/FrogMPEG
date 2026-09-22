@@ -63,6 +63,7 @@ python -m src convert MyShot --preset fulldome-2k --extension jpeg --format h264
 | `--extension`, `-e` | `jpeg`, `jpg`, or `png`. Omit to use `defaults.file_extension`. |
 | `--format`, `-f` | Codec key from `list-formats`, such as `prores-422-mov`. |
 | `--container`, `-c` | `mp4` or `mov`. Uses the first codec registered for that container (`h264-nvenc-mp4` or `h264-cpu-mov`). Prefer `--format`. |
+| `--rotate`, `-r` | Clockwise degrees applied to every frame before scaling. `0` (default), `90`, `-90`, `180`, or `270`. |
 
 There is no `--output` on `convert`. The file is written to `output_folder` in `config.json`. To change the destination, edit that key. Relative paths in config resolve against the FrogMPEG repo root, not the shell's current directory.
 
@@ -73,7 +74,30 @@ Codec choice, in order:
 3. `defaults.output_codec`
 4. `h264-nvenc-mp4`
 
-Only one extension is read. `*.jpeg` does not include `*.jpg`. Files are sorted by the integers in the filename, then by name. They are passed to FFmpeg as a concat list with `-r` set to the preset fps, then scaled to the preset resolution. `fit` controls that scale: `stretch` (the default, used by dome presets), `pad` (whole frame, black bars), or `crop` (fill the frame and cut the overflow). A preset fps of 30 plays every still for twice as long as 60. It does not drop frames.
+Only one extension is read. `*.jpeg` does not include `*.jpg`. Files are sorted by the integers in the filename, then by name. They are passed to FFmpeg as a concat list with `-r` set to the preset fps, then scaled to the preset resolution. `fit` controls that scale: `stretch` (the default, used by dome presets), `pad` (whole frame, black bars), or `crop` (fill the frame and cut the overflow).
+
+`convert` has no start time, end time, or duration. Every still in the folder becomes one frame. Length is frame count divided by the preset fps. A 60 fps preset plays each frame for 1/60 of a second: 300 frames become 5 seconds, 1800 frames become 30 seconds. Choosing 30 fps plays those same frames for twice as long. It does not drop frames, and it does not trim the sequence to 30 or 60 seconds. A shorter reel means a folder that contains only the frames you want.
+
+#### Rotate
+
+`--rotate` turns every frame clockwise before the preset scale. The preset resolution is the size of the finished file. `extract` and the GUIs do not rotate.
+
+| Value | Direction | FFmpeg filter |
+|---|---|---|
+| `0` | none | no rotate filter |
+| `90` | clockwise | `transpose=1` |
+| `-90` or `270` | counter-clockwise | `transpose=2` |
+| `180` | half turn | `hflip,vflip` |
+
+Other numbers fail. `360` and `-180` are accepted and normalized (`-180` is the same turn as `180`).
+
+```bash
+python -m src convert MyShot --preset social-reel --rotate 90
+python -m src convert MyShot --preset social-reel --rotate -90
+python -m src convert MyShot --preset fulldome-2k --rotate 180
+```
+
+A square frame stays square after a quarter turn, then `pad` or `crop` fits that turned picture into the preset. A 90 degree turn of a 1080×1920 picture swaps it to 1920×1080 before scaling.
 
 Output name:
 
@@ -101,9 +125,19 @@ python -m src extract /path/to/show.mp4 --start 10 --end 60 --format tiff
 | `--output`, `-o` | Output directory. Default: `{output_folder}/{stem}_frames`. |
 | `--format`, `-f` | `png` (default), `jpeg`, `tiff`, or `exr`. |
 | `--fps` | Sample at this frame rate. Omit to keep every frame. |
-| `--start`, `-s` | Start time in seconds. |
-| `--end`, `-e` | End time in seconds. |
+| `--start`, `-s` | Start on the source clock, in seconds. |
+| `--end`, `-e` | End on the source clock, in seconds. This is a timestamp, so `--end 25` means "stop at 25s," which is a length only when you also start at 0. |
 | `--quality`, `-q` | JPEG quality, 1–100. Default 95. Ignored for other formats. |
+
+`--start` and `--end` apply only to `extract`. `convert` ignores time and encodes the whole image folder.
+
+```bash
+python -m src extract show.mp4 --start 10 --end 25   # from 10s to 25s, so 15 seconds of frames
+python -m src extract show.mp4 --start 10            # from 10s through the end of the file
+python -m src extract show.mp4 --end 25              # the first 25 seconds
+```
+
+There is no flag for "start here and take N seconds." To keep 15 seconds starting at 10s, pass `--end 25` (10 + 15). The video-to-frames GUI cannot set either time. Use `extract`.
 
 Frames are named `{stem}_%05d.{ext}` (`show_00001.png`). JPEG is written as `.jpg`. PNG uses compression level 6. TIFF uses LZW. EXR is passed through with no extra codec flags, so bit depth is whatever FFmpeg's default EXR encoder writes. The `extraction` block in `config.json` is not read by this command.
 
@@ -149,7 +183,7 @@ Default when no `--preset` is passed: `defaults.preset_name` (`fulldome-2k` in t
 - Reads any file FFprobe can open.
 - Writes PNG, JPEG, TIFF, or OpenEXR.
 - Can keep every frame, or sample with `--fps`.
-- Can cut a time range with `--start` and `--end` (CLI).
+- Can cut a source time range with `extract --start` and `--end`. `--end` is a clock time. There is no duration flag. See [Video to frames](#video-to-frames).
 - The GUI writes `{video_parent}/{stem}_frames/`. The CLI writes `{output_folder}/{stem}_frames/` unless `-o` is set.
 - The GUI lists the ten newest `mp4`, `mov`, `mkv`, `avi`, and `webm` files in `output_folder`.
 
@@ -290,7 +324,7 @@ Shared keys: `[S]` start, `[B]` browse, `[R]` refresh, `[L]` back to the launche
 
 Image-to-video sections: folders, preset, extension (`jpeg` / `jpg` / `png`), container, codec. The preview shows duration, resolution, bitrate, codec, and a rough file size.
 
-Video-to-image sections: video, format, sample rate (all frames, 1, 5, 10, 24, 30 fps), JPEG quality (50–100). `[B]` opens a file dialog. Time range is not editable there; use `extract --start --end`.
+Video-to-image sections: video, format, sample rate (all frames, 1, 5, 10, 24, 30 fps), JPEG quality (50–100). `[B]` opens a file dialog. The GUI extracts the whole file. A start or end time is `extract --start` and `--end` only.
 
 `python -m src browse` is a third interactive path: folder dialog, then a preset number, then a format menu limited to H.264 NVENC, HEVC NVENC, ProRes 422, ProRes 422 HQ, and ProRes 4444.
 
