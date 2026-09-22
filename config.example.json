@@ -72,8 +72,8 @@
       "output_codec": "h264-nvenc-mp4"
     },
     {
-      "name": "social-reel",
-      "description": "9:16 Reel, TikTok, and Shorts. Whole frame with bars. Keeps 60fps timing.",
+      "name": "social-reel-60",
+      "description": "9:16 Reel, TikTok, and Shorts at 60fps. Whole frame with bars.",
       "resolution": "1080x1920",
       "bitrate": "24M",
       "fps": 60,
@@ -83,7 +83,7 @@
     },
     {
       "name": "social-reel-30",
-      "description": "9:16 Reel at 30fps. Same frames play for twice as long as a 60fps sequence.",
+      "description": "9:16 Reel at 30fps. Whole frame with bars. Keeps 30fps timing.",
       "resolution": "1080x1920",
       "bitrate": "24M",
       "fps": 30,
@@ -92,8 +92,76 @@
       "faststart": true
     },
     {
+      "name": "social-reel-fill-60",
+      "description": "9:16 Reel at 60fps. Fills the phone and crops the sides of a square master.",
+      "resolution": "1080x1920",
+      "bitrate": "24M",
+      "fps": 60,
+      "output_codec": "h264-nvenc-mp4",
+      "fit": "crop",
+      "faststart": true
+    },
+    {
+      "name": "social-reel-fill-30",
+      "description": "9:16 Reel at 30fps. Fills the phone and crops the sides of a square master.",
+      "resolution": "1080x1920",
+      "bitrate": "24M",
+      "fps": 30,
+      "output_codec": "h264-nvenc-mp4",
+      "fit": "crop",
+      "faststart": true
+    },
+    {
+      "name": "social-feed-60",
+      "description": "4:5 Instagram feed portrait at 60fps. Whole frame with bars.",
+      "resolution": "1080x1350",
+      "bitrate": "24M",
+      "fps": 60,
+      "output_codec": "h264-nvenc-mp4",
+      "fit": "pad",
+      "faststart": true
+    },
+    {
+      "name": "social-feed-30",
+      "description": "4:5 Instagram feed portrait at 30fps. Whole frame with bars.",
+      "resolution": "1080x1350",
+      "bitrate": "24M",
+      "fps": 30,
+      "output_codec": "h264-nvenc-mp4",
+      "fit": "pad",
+      "faststart": true
+    },
+    {
+      "name": "social-square-60",
+      "description": "1:1 feed square at 60fps. Even scale from a square dome master.",
+      "resolution": "1080x1080",
+      "bitrate": "24M",
+      "fps": 60,
+      "output_codec": "h264-nvenc-mp4",
+      "faststart": true
+    },
+    {
+      "name": "social-square-30",
+      "description": "1:1 feed square at 30fps. Even scale from a square dome master.",
+      "resolution": "1080x1080",
+      "bitrate": "24M",
+      "fps": 30,
+      "output_codec": "h264-nvenc-mp4",
+      "faststart": true
+    },
+    {
+      "name": "social-reel",
+      "description": "Same as social-reel-60.",
+      "resolution": "1080x1920",
+      "bitrate": "24M",
+      "fps": 60,
+      "output_codec": "h264-nvenc-mp4",
+      "fit": "pad",
+      "faststart": true
+    },
+    {
       "name": "social-reel-fill",
-      "description": "9:16 Reel that fills the phone and crops the sides of a square master.",
+      "description": "Same as social-reel-fill-60.",
       "resolution": "1080x1920",
       "bitrate": "24M",
       "fps": 60,
@@ -103,7 +171,7 @@
     },
     {
       "name": "social-feed",
-      "description": "4:5 Instagram feed portrait. Whole frame with bars.",
+      "description": "Same as social-feed-60.",
       "resolution": "1080x1350",
       "bitrate": "24M",
       "fps": 60,
@@ -113,7 +181,7 @@
     },
     {
       "name": "social-square",
-      "description": "1:1 feed square. Even scale from a square dome master.",
+      "description": "Same as social-square-60.",
       "resolution": "1080x1080",
       "bitrate": "24M",
       "fps": 60,
